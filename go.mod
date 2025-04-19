@@ -1,3 +1,3 @@
-module shorturl
+module github.com/divanov-web/shorturl
 
-go 1.24
+go 1.24.2
