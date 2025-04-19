@@ -1,20 +1,9 @@
 package main
 
 import (
+	"io"
 	"net/http"
 )
-
-const form = `<html>
-    <head>
-    <title></title>
-    </head>
-    <body>
-        <form action="/" method="post">
-            <label>Ссылка <input type="text" name="url"></label>
-            <input type="submit" value="Сократить">
-        </form>
-    </body>
-</html>`
 
 func makeShort(url string) string {
 	url = "EwHXdJfB"
@@ -29,23 +18,25 @@ func mainPage(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
 
 	if r.Method == http.MethodPost && path == "/" {
-		url := r.FormValue("url")
-		shortUrl := makeShort(url)
-		w.Write([]byte(shortUrl))
+		body, err := io.ReadAll(r.Body)
+		if err != nil || len(body) == 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		originalURL := string(body)
+		shortUrl := makeShort(originalURL)
+
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusCreated)
+		w.Write([]byte("http://localhost:8080/" + shortUrl))
 		return
 	}
 
 	if r.Method == http.MethodGet && path != "/" {
 		id := path[1:]
 		url := getUrl(id)
-		//w.Write([]byte(url))
-		http.Redirect(w, r, url, http.StatusTemporaryRedirect)
-		return
-	}
 
-	// Показываем форму
-	if r.Method == http.MethodGet && path == "/" {
-		w.Write([]byte(form))
+		http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 		return
 	}
 
