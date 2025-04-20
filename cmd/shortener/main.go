@@ -7,6 +7,7 @@ import (
 	"time"
 )
 
+var rnd = rand.New(rand.NewSource(time.Now().UnixNano()))
 var urlStorage = make(map[string]string)
 
 const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -14,7 +15,7 @@ const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 func generateID(n int) string {
 	b := make([]byte, n)
 	for i := range b {
-		b[i] = charset[rand.Intn(len(charset))]
+		b[i] = charset[rnd.Intn(len(charset))]
 	}
 	return string(b)
 }
@@ -63,8 +64,6 @@ func mainPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	rand.Seed(time.Now().UnixNano())
-
 	mux := http.NewServeMux()
 	mux.HandleFunc(`/`, mainPage)
 
