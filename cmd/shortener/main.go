@@ -2,16 +2,32 @@ package main
 
 import (
 	"io"
+	"math/rand"
 	"net/http"
+	"time"
 )
 
-func makeShort(url string) string {
-	url = "EwHXdJfB"
-	return url
+var urlStorage = make(map[string]string)
+
+const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+func generateID(n int) string {
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = charset[rand.Intn(len(charset))]
+	}
+	return string(b)
 }
 
-func getUrl(id string) string {
-	return "https://practicum.yandex.ru/"
+func makeShort(url string) string {
+	id := generateID(8)
+	urlStorage[id] = url
+	return id
+}
+
+func getUrl(id string) (string, bool) {
+	url, ok := urlStorage[id]
+	return url, ok
 }
 
 func mainPage(w http.ResponseWriter, r *http.Request) {
@@ -24,18 +40,21 @@ func mainPage(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		originalURL := string(body)
-		shortUrl := makeShort(originalURL)
+		shortID := makeShort(originalURL)
 
 		w.Header().Set("Content-Type", "text/plain")
 		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte("http://localhost:8080/" + shortUrl))
+		w.Write([]byte("http://localhost:8080/" + shortID))
 		return
 	}
 
 	if r.Method == http.MethodGet && path != "/" {
 		id := path[1:]
-		url := getUrl(id)
-
+		url, ok := getUrl(id)
+		if !ok {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
 		http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 		return
 	}
@@ -44,6 +63,8 @@ func mainPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	rand.Seed(time.Now().UnixNano())
+
 	mux := http.NewServeMux()
 	mux.HandleFunc(`/`, mainPage)
 
