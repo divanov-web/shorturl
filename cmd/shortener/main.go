@@ -26,7 +26,7 @@ func makeShort(url string) string {
 	return id
 }
 
-func getUrl(id string) (string, bool) {
+func getURL(id string) (string, bool) {
 	url, ok := urlStorage[id]
 	return url, ok
 }
@@ -51,7 +51,7 @@ func mainPage(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method == http.MethodGet && path != "/" {
 		id := path[1:]
-		url, ok := getUrl(id)
+		url, ok := getURL(id)
 		if !ok {
 			w.WriteHeader(http.StatusBadRequest)
 			return
