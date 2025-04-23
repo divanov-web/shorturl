@@ -20,16 +20,13 @@ func MainPage(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		originalURL = r.FormValue("url")
-	case ct == "text/plain" || ct == "":
+	default:
 		body, err := io.ReadAll(r.Body)
 		if err != nil || len(body) == 0 {
 			http.Error(w, "Пустое тело запроса", http.StatusBadRequest)
 			return
 		}
 		originalURL = strings.TrimSpace(string(body))
-	default:
-		http.Error(w, "Неподдерживаемый Content-Type", http.StatusUnsupportedMediaType)
-		return
 	}
 
 	if originalURL == "" || !isValidURL(originalURL) {
