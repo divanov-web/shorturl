@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"github.com/divanov-web/shorturl/internal/storage"
+	"github.com/go-chi/chi/v5"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -50,7 +51,7 @@ func TestHandlePost(t *testing.T) {
 			req := httptest.NewRequest(tt.method, "/", strings.NewReader(tt.body))
 			w := httptest.NewRecorder()
 
-			handlePost(w, req)
+			MainPage(w, req)
 
 			result := w.Result()
 			defer result.Body.Close()
@@ -113,7 +114,9 @@ func TestHandleGet(t *testing.T) {
 			req := httptest.NewRequest(tt.method, tt.path, nil)
 			w := httptest.NewRecorder()
 
-			handleGet(w, req)
+			r := chi.NewRouter()
+			r.Get("/{id}", GetRealUrl)
+			r.ServeHTTP(w, req)
 
 			result := w.Result()
 			defer result.Body.Close()
