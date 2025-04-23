@@ -2,28 +2,41 @@ package handlers
 
 import (
 	"github.com/divanov-web/shorturl/internal/storage"
+	"github.com/go-chi/chi/v5"
 	"io"
 	"net/http"
+	"net/url"
+	"strings"
 )
 
 func MainPage(w http.ResponseWriter, r *http.Request) {
-	switch {
-	case r.Method == http.MethodPost && r.URL.Path == "/":
-		handlePost(w, r)
-	case r.Method == http.MethodGet && r.URL.Path != "/":
-		handleGet(w, r)
-	default:
-		w.WriteHeader(http.StatusBadRequest)
-	}
-}
+	var originalURL string
 
-func handlePost(w http.ResponseWriter, r *http.Request) {
-	body, err := io.ReadAll(r.Body)
-	if err != nil || len(body) == 0 {
-		w.WriteHeader(http.StatusBadRequest)
+	ct := r.Header.Get("Content-Type")
+	switch {
+	case ct == "application/x-www-form-urlencoded":
+		if err := r.ParseForm(); err != nil {
+			http.Error(w, "Ошибка парсинга формы", http.StatusBadRequest)
+			return
+		}
+		originalURL = r.FormValue("url")
+	case ct == "text/plain" || ct == "":
+		body, err := io.ReadAll(r.Body)
+		if err != nil || len(body) == 0 {
+			http.Error(w, "Пустое тело запроса", http.StatusBadRequest)
+			return
+		}
+		originalURL = strings.TrimSpace(string(body))
+	default:
+		http.Error(w, "Неподдерживаемый Content-Type", http.StatusUnsupportedMediaType)
 		return
 	}
-	originalURL := string(body)
+
+	if originalURL == "" || !isValidURL(originalURL) {
+		http.Error(w, "Некорректный URL", http.StatusBadRequest)
+		return
+	}
+
 	shortID := storage.MakeShort(originalURL)
 
 	w.Header().Set("Content-Type", "text/plain")
@@ -31,12 +44,17 @@ func handlePost(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("http://localhost:8080/" + shortID))
 }
 
-func handleGet(w http.ResponseWriter, r *http.Request) {
-	id := r.URL.Path[1:]
-	url, ok := storage.GetURL(id)
+func isValidURL(raw string) bool {
+	u, err := url.ParseRequestURI(raw)
+	return err == nil && u.Scheme != "" && u.Host != ""
+}
+
+func GetRealUrl(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	realUrl, ok := storage.GetURL(id)
 	if !ok {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
+	http.Redirect(w, r, realUrl, http.StatusTemporaryRedirect)
 }

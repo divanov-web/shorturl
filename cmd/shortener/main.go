@@ -4,14 +4,15 @@ import (
 	"github.com/divanov-web/shorturl/internal/handlers"
 	"log"
 	"net/http"
+
+	"github.com/go-chi/chi/v5"
 )
 
 func main() {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", handlers.MainPage)
+	r := chi.NewRouter()
 
-	err := http.ListenAndServe(":8080", mux)
-	if err != nil {
-		log.Fatal(err)
-	}
+	r.Post("/", handlers.MainPage) // POST /car
+	r.Get("/{id}", handlers.GetRealUrl)
+
+	log.Fatal(http.ListenAndServe(":8080", r))
 }
