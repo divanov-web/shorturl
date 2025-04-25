@@ -9,7 +9,18 @@ import (
 	"strings"
 )
 
-func MainPage(w http.ResponseWriter, r *http.Request) {
+type Handler struct {
+	BaseURL string
+}
+
+func NewHandler(baseURL string) *Handler {
+	return &Handler{
+		BaseURL: baseURL,
+	}
+}
+
+// MainPage POST запрос на отправку большой ссылки и возвращение короткой ссылки в виде хеша
+func (h *Handler) MainPage(w http.ResponseWriter, r *http.Request) {
 	var originalURL string
 
 	ct := r.Header.Get("Content-Type")
@@ -38,15 +49,11 @@ func MainPage(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte("http://localhost:8080/" + shortID))
+	w.Write([]byte(h.BaseURL + "/" + shortID))
 }
 
-func isValidURL(raw string) bool {
-	u, err := url.ParseRequestURI(raw)
-	return err == nil && u.Scheme != "" && u.Host != ""
-}
-
-func GetRealUrl(w http.ResponseWriter, r *http.Request) {
+// GetRealUrl Get запрос на получение ссылки из хеша
+func (h *Handler) GetRealUrl(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	realUrl, ok := storage.GetURL(id)
 	if !ok {
@@ -54,4 +61,9 @@ func GetRealUrl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, realUrl, http.StatusTemporaryRedirect)
+}
+
+func isValidURL(raw string) bool {
+	u, err := url.ParseRequestURI(raw)
+	return err == nil && u.Scheme != "" && u.Host != ""
 }

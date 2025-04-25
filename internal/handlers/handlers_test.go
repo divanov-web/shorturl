@@ -48,10 +48,12 @@ func TestHandlePost(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			h := NewHandler("http://localhost:8080")
+
 			req := httptest.NewRequest(tt.method, "/", strings.NewReader(tt.body))
 			w := httptest.NewRecorder()
 
-			MainPage(w, req)
+			h.MainPage(w, req) // вызываем через структуру
 
 			result := w.Result()
 			defer result.Body.Close()
@@ -100,7 +102,7 @@ func TestHandleGet(t *testing.T) {
 			name:   "non-existent ID",
 			method: http.MethodGet,
 			path:   "/doesnotexist",
-			setup:  func() {}, // ничего не делаем
+			setup:  func() {},
 			want: want{
 				statusCode: http.StatusBadRequest,
 			},
@@ -111,11 +113,13 @@ func TestHandleGet(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setup()
 
+			h := NewHandler("http://localhost:8080")
+
 			req := httptest.NewRequest(tt.method, tt.path, nil)
 			w := httptest.NewRecorder()
 
 			r := chi.NewRouter()
-			r.Get("/{id}", GetRealUrl)
+			r.Get("/{id}", h.GetRealUrl)
 			r.ServeHTTP(w, req)
 
 			result := w.Result()

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/divanov-web/shorturl/internal/config"
 	"github.com/divanov-web/shorturl/internal/handlers"
 	"log"
 	"net/http"
@@ -9,10 +10,14 @@ import (
 )
 
 func main() {
+	cfg := config.NewConfig()
+
+	h := handlers.NewHandler(cfg.BaseURL)
+
 	r := chi.NewRouter()
 
-	r.Post("/", handlers.MainPage) // POST /car
-	r.Get("/{id}", handlers.GetRealUrl)
+	r.Post("/", h.MainPage)
+	r.Get("/{id}", h.GetRealUrl)
 
-	log.Fatal(http.ListenAndServe(":8080", r))
+	log.Fatal(http.ListenAndServe(cfg.ServerAddress, r))
 }
