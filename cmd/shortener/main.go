@@ -17,7 +17,7 @@ func main() {
 	r := chi.NewRouter()
 
 	r.Post("/", h.MainPage)
-	r.Get("/{id}", h.GetRealUrl)
+	r.Get("/{id}", h.GetRealURL)
 
 	log.Fatal(http.ListenAndServe(cfg.ServerAddress, r))
 }

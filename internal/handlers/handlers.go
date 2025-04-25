@@ -52,15 +52,15 @@ func (h *Handler) MainPage(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(h.BaseURL + "/" + shortID))
 }
 
-// GetRealUrl Get запрос на получение ссылки из хеша
-func (h *Handler) GetRealUrl(w http.ResponseWriter, r *http.Request) {
+// GetRealURL Get запрос на получение ссылки из хеша
+func (h *Handler) GetRealURL(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	realUrl, ok := storage.GetURL(id)
+	realURL, ok := storage.GetURL(id)
 	if !ok {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	http.Redirect(w, r, realUrl, http.StatusTemporaryRedirect)
+	http.Redirect(w, r, realURL, http.StatusTemporaryRedirect)
 }
 
 func isValidURL(raw string) bool {

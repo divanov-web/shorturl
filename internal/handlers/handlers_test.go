@@ -119,7 +119,7 @@ func TestHandleGet(t *testing.T) {
 			w := httptest.NewRecorder()
 
 			r := chi.NewRouter()
-			r.Get("/{id}", h.GetRealUrl)
+			r.Get("/{id}", h.GetRealURL)
 			r.ServeHTTP(w, req)
 
 			result := w.Result()
