@@ -13,8 +13,8 @@ type Config struct {
 
 func NewConfig() *Config {
 	cfg := &Config{
-		ServerAddress: "default.com:8080",
-		BaseURL:       "https://default.com:8080",
+		ServerAddress: "localhost:8080",
+		BaseURL:       "https://localhost:8080",
 	}
 
 	// Загружаем переменные окружения
