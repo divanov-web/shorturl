@@ -12,32 +12,37 @@ type Config struct {
 }
 
 func NewConfig() *Config {
-	cfg := &Config{
-		ServerAddress: "localhost:8080",
-		BaseURL:       "http://localhost:8080",
-	}
-
-	// Загружаем переменные окружения
-	if err := env.Parse(cfg); err != nil {
-		log.Fatalf("ошибка чтения переменных окружения: %v", err)
-	}
-
-	envAddr := cfg.ServerAddress
-	envBase := cfg.BaseURL
-
-	// Переменные из флагов
-	addrFlag := flag.String("a", cfg.ServerAddress, "адрес запуска HTTP-сервера")
-	baseFlag := flag.String("b", cfg.BaseURL, "базовый адрес для сокращённых URL")
+	// флаги без дефолтов
+	addrFlag := flag.String("a", "", "адрес запуска HTTP-сервера")
+	baseFlag := flag.String("b", "", "базовый адрес для сокращённых URL")
 
 	flag.Parse()
 
-	// Если значение из env пустое — берём флаг
-	if envAddr == "" && addrFlag != nil {
-		cfg.ServerAddress = *addrFlag
+	// переменные окружения
+	envCfg := Config{}
+	if err := env.Parse(&envCfg); err != nil {
+		log.Fatal(err)
 	}
-	if envBase == "" && baseFlag != nil {
-		cfg.BaseURL = *baseFlag
+
+	// Формируем итоговую конфигурацию с приоритетами:
+	// 1. Переменная окружения
+	// 2. Флаг командной строки
+	// 3. Значение по умолчанию
+	cfg := &Config{
+		ServerAddress: chooseValue(envCfg.ServerAddress, *addrFlag, "localhost:8080"),
+		BaseURL:       chooseValue(envCfg.BaseURL, *baseFlag, "http://localhost:8080"),
 	}
 
 	return cfg
+}
+
+// Вспомогательная функция для выбора значения
+func chooseValue(envVal, flagVal, defaultVal string) string {
+	if envVal != "" {
+		return envVal
+	}
+	if flagVal != "" {
+		return flagVal
+	}
+	return defaultVal
 }
