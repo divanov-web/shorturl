@@ -18,10 +18,17 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	defer logger.Sync()
+
 	// делаем регистратор SugaredLogger
 	sugar := logger.Sugar()
 	middleware.SetLogger(sugar) // передаём логгер в middleware
+
+	//сброс буфера логгера (добавлено про запас по урокам)
+	defer func() {
+		if err := logger.Sync(); err != nil {
+			sugar.Errorw("Failed to sync logger", "error", err)
+		}
+	}()
 
 	h := handlers.NewHandler(cfg.BaseURL)
 
