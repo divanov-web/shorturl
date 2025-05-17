@@ -35,7 +35,7 @@ func main() {
 	r := chi.NewRouter()
 
 	r.Use(middleware.WithLogging)
-	r.Use(middleware.WithGzipBuffered)
+	r.Use(middleware.WithGzipSimple)
 
 	r.Post("/", h.MainPage)
 	r.Post("/api/shorten", h.SetShortURL)
