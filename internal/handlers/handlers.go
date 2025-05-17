@@ -16,7 +16,7 @@ type Handler struct {
 
 // DataRequest Входящие данные
 type DataRequest struct {
-	Url string `json:"url"`
+	URL string `json:"url"`
 }
 
 // DataResponse Исходящие данные
@@ -72,7 +72,7 @@ func (h *Handler) SetShortURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	originalURL := strings.TrimSpace(data.Url)
+	originalURL := strings.TrimSpace(data.URL)
 	if originalURL == "" || !isValidURL(originalURL) {
 		http.Error(w, "Некорректный URL", http.StatusBadRequest)
 		return
