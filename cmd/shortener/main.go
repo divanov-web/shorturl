@@ -37,6 +37,7 @@ func main() {
 	r.Use(middleware.WithLogging)
 
 	r.Post("/", h.MainPage)
+	r.Post("/api/shorten", h.SetShortURL)
 	r.Get("/{id}", h.GetRealURL)
 
 	sugar.Infow(
