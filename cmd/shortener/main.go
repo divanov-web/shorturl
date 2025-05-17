@@ -34,6 +34,7 @@ func main() {
 
 	r := chi.NewRouter()
 
+	r.Use(middleware.WithDecompress)
 	r.Use(middleware.WithLogging)
 	r.Use(middleware.WithGzipBuffered)
 
