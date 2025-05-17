@@ -16,7 +16,7 @@ func (w gzipWriter) Write(b []byte) (int, error) {
 	return w.Writer.Write(b)
 }
 
-// WithGzipSimple only if Accept-Encoding: gzip AND response Content-Type = Any
+// WithGzipSimple сжимаем если Accept-Encoding: gzip и response Content-Type = <Any>
 func WithGzipSimple(h http.Handler) http.Handler {
 	logFn := func(w http.ResponseWriter, r *http.Request) {
 		// проверяем, что клиент поддерживает gzip-сжатие

@@ -38,7 +38,7 @@ func (b *bufferedResponseWriter) Write(data []byte) (int, error) {
 	return b.body.Write(data)
 }
 
-// WithGzipBuffered only if Accept-Encoding: gzip AND response Content-Type is JSON or HTML
+// WithGzipBuffered сжимаем если Accept-Encoding: gzip и response Content-Type = JSON or HTML
 func WithGzipBuffered(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
