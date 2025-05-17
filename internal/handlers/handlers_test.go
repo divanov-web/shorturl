@@ -1,8 +1,13 @@
 package handlers
 
 import (
+	"bytes"
+	"encoding/json"
+	"github.com/divanov-web/shorturl/internal/config"
+	"github.com/divanov-web/shorturl/internal/middleware"
 	"github.com/divanov-web/shorturl/internal/storage"
 	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -131,5 +136,55 @@ func TestHandleGet(t *testing.T) {
 				assert.Equal(t, tt.want.location, result.Header.Get("Location"))
 			}
 		})
+	}
+}
+
+func TestSetShortURL(t *testing.T) {
+	// Настройка логгера (нужен, т.к. middleware его требует)
+	logger, _ := zap.NewDevelopment()
+	defer logger.Sync()
+	sugar := logger.Sugar()
+	middleware.SetLogger(sugar)
+
+	// Инициализируем конфиг и хендлер
+	cfg := config.NewConfig()
+	h := NewHandler(cfg.BaseURL)
+
+	// Настраиваем маршруты и middleware
+	r := chi.NewRouter()
+	r.Use(middleware.WithLogging)
+	r.Post("/api/shorten", h.SetShortURL)
+
+	// Создаём тестовый JSON-запрос
+	requestBody := `{"url": "https://practicum.yandex.ru"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/shorten", bytes.NewBufferString(requestBody))
+	req.Header.Set("Content-Type", "application/json")
+
+	// Выполняем запрос
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	// Проверки
+	if rec.Code != http.StatusCreated {
+		t.Errorf("expected status 201 Created, got %d", rec.Code)
+	}
+
+	contentType := rec.Header().Get("Content-Type")
+	if !strings.Contains(contentType, "application/json") {
+		t.Errorf("expected application/json Content-Type, got %s", contentType)
+	}
+
+	// Проверяем, что тело содержит поле "result"
+	var resp DataResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("response is not valid JSON: %v", err)
+	}
+
+	if resp.Result == "" {
+		t.Error("expected result field to be non-empty")
+	}
+
+	if !strings.HasPrefix(resp.Result, cfg.BaseURL+"/") {
+		t.Errorf("expected result to start with %s/, got %s", cfg.BaseURL, resp.Result)
 	}
 }
