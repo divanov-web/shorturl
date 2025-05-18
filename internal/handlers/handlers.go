@@ -12,6 +12,7 @@ import (
 
 type Handler struct {
 	BaseURL string
+	Storage *storage.Storage
 }
 
 // DataRequest Входящие данные
@@ -24,9 +25,10 @@ type DataResponse struct {
 	Result string `json:"result"`
 }
 
-func NewHandler(baseURL string) *Handler {
+func NewHandler(baseURL string, store *storage.Storage) *Handler {
 	return &Handler{
 		BaseURL: baseURL,
+		Storage: store,
 	}
 }
 
@@ -56,7 +58,7 @@ func (h *Handler) MainPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	shortID := storage.MakeShort(originalURL)
+	shortID := h.Storage.MakeShort(originalURL)
 
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusCreated)
@@ -78,7 +80,7 @@ func (h *Handler) SetShortURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	shortID := storage.MakeShort(originalURL)
+	shortID := h.Storage.MakeShort(originalURL)
 	result := DataResponse{
 		Result: h.BaseURL + "/" + shortID,
 	}
@@ -94,7 +96,7 @@ func (h *Handler) SetShortURL(w http.ResponseWriter, r *http.Request) {
 // GetRealURL Get запрос на получение ссылки из хеша
 func (h *Handler) GetRealURL(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	realURL, ok := storage.GetURL(id)
+	realURL, ok := h.Storage.GetURL(id)
 	if !ok {
 		w.WriteHeader(http.StatusBadRequest)
 		return

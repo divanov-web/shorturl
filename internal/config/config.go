@@ -7,14 +7,16 @@ import (
 )
 
 type Config struct {
-	ServerAddress string `env:"SERVER_ADDRESS"`
-	BaseURL       string `env:"BASE_URL"`
+	ServerAddress   string `env:"SERVER_ADDRESS"`
+	BaseURL         string `env:"BASE_URL"`
+	FileStoragePath string `env:"FILE_STORAGE_PATH"`
 }
 
 func NewConfig() *Config {
 	// флаги без дефолтов
 	addrFlag := flag.String("a", "", "адрес запуска HTTP-сервера")
 	baseFlag := flag.String("b", "", "базовый адрес для сокращённых URL")
+	filePathFlag := flag.String("f", "", "путь к файлу хранения данных")
 
 	flag.Parse()
 
@@ -29,8 +31,9 @@ func NewConfig() *Config {
 	// 2. Флаг командной строки
 	// 3. Значение по умолчанию
 	cfg := &Config{
-		ServerAddress: chooseValue(envCfg.ServerAddress, *addrFlag, "localhost:8080"),
-		BaseURL:       chooseValue(envCfg.BaseURL, *baseFlag, "http://localhost:8080"),
+		ServerAddress:   chooseValue(envCfg.ServerAddress, *addrFlag, "localhost:8080"),
+		BaseURL:         chooseValue(envCfg.BaseURL, *baseFlag, "http://localhost:8080"),
+		FileStoragePath: chooseValue(envCfg.FileStoragePath, *filePathFlag, "shortener_data.json"),
 	}
 
 	return cfg
