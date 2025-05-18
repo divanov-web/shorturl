@@ -111,3 +111,10 @@ func (s *Storage) loadFromFile() error {
 	}
 	return scanner.Err()
 }
+
+func NewTestStorage() *Storage {
+	return &Storage{
+		data: make(map[string]string),
+		rnd:  rand.New(rand.NewSource(time.Now().UnixNano())),
+	}
+}

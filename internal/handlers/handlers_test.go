@@ -53,12 +53,13 @@ func TestHandlePost(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := NewHandler("http://localhost:8080")
+			store := storage.NewTestStorage()
+			h := NewHandler("http://localhost:8080", store)
 
 			req := httptest.NewRequest(tt.method, "/", strings.NewReader(tt.body))
 			w := httptest.NewRecorder()
 
-			h.MainPage(w, req) // вызываем через структуру
+			h.MainPage(w, req)
 
 			result := w.Result()
 			defer result.Body.Close()
@@ -88,15 +89,15 @@ func TestHandleGet(t *testing.T) {
 		name   string
 		method string
 		path   string
-		setup  func()
+		setup  func(*storage.Storage)
 		want   want
 	}{
 		{
 			name:   "existing ID",
 			method: http.MethodGet,
 			path:   "/abc123",
-			setup: func() {
-				storage.ForceSet("abc123", "https://example.com")
+			setup: func(s *storage.Storage) {
+				s.ForceSet("abc123", "https://example.com")
 			},
 			want: want{
 				statusCode: http.StatusTemporaryRedirect,
@@ -107,7 +108,7 @@ func TestHandleGet(t *testing.T) {
 			name:   "non-existent ID",
 			method: http.MethodGet,
 			path:   "/doesnotexist",
-			setup:  func() {},
+			setup:  func(s *storage.Storage) {},
 			want: want{
 				statusCode: http.StatusBadRequest,
 			},
@@ -116,9 +117,10 @@ func TestHandleGet(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tt.setup()
+			store := storage.NewTestStorage()
+			tt.setup(store)
 
-			h := NewHandler("http://localhost:8080")
+			h := NewHandler("http://localhost:8080", store)
 
 			req := httptest.NewRequest(tt.method, tt.path, nil)
 			w := httptest.NewRecorder()
@@ -140,51 +142,37 @@ func TestHandleGet(t *testing.T) {
 }
 
 func TestSetShortURL(t *testing.T) {
-	// Настройка логгера (нужен, т.к. middleware его требует)
 	logger, _ := zap.NewDevelopment()
 	defer logger.Sync()
 	sugar := logger.Sugar()
 	middleware.SetLogger(sugar)
 
-	// Инициализируем конфиг и хендлер
 	cfg := config.NewConfig()
-	h := NewHandler(cfg.BaseURL)
+	store := storage.NewTestStorage()
+	h := NewHandler(cfg.BaseURL, store)
 
-	// Настраиваем маршруты и middleware
 	r := chi.NewRouter()
 	r.Use(middleware.WithLogging)
 	r.Post("/api/shorten", h.SetShortURL)
 
-	// Создаём тестовый JSON-запрос
-	requestBody := `{"url": "https://practicum.yandex.ru"}`
-	req := httptest.NewRequest(http.MethodPost, "/api/shorten", bytes.NewBufferString(requestBody))
+	// Сериализуем JSON-запрос
+	requestBody, err := json.Marshal(map[string]string{"url": "https://practicum.yandex.ru"})
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/shorten", bytes.NewBuffer(requestBody))
 	req.Header.Set("Content-Type", "application/json")
 
-	// Выполняем запрос
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 
-	// Проверки
-	if rec.Code != http.StatusCreated {
-		t.Errorf("expected status 201 Created, got %d", rec.Code)
-	}
+	assert.Equal(t, http.StatusCreated, rec.Code)
 
 	contentType := rec.Header().Get("Content-Type")
-	if !strings.Contains(contentType, "application/json") {
-		t.Errorf("expected application/json Content-Type, got %s", contentType)
-	}
+	assert.Contains(t, contentType, "application/json")
 
-	// Проверяем, что тело содержит поле "result"
 	var resp DataResponse
-	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
-		t.Fatalf("response is not valid JSON: %v", err)
-	}
-
-	if resp.Result == "" {
-		t.Error("expected result field to be non-empty")
-	}
-
-	if !strings.HasPrefix(resp.Result, cfg.BaseURL+"/") {
-		t.Errorf("expected result to start with %s/, got %s", cfg.BaseURL, resp.Result)
-	}
+	err = json.Unmarshal(rec.Body.Bytes(), &resp)
+	require.NoError(t, err)
+	assert.NotEmpty(t, resp.Result)
+	assert.True(t, strings.HasPrefix(resp.Result, cfg.BaseURL+"/"))
 }
