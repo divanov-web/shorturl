@@ -4,6 +4,7 @@ import (
 	"github.com/divanov-web/shorturl/internal/config"
 	"github.com/divanov-web/shorturl/internal/handlers"
 	"github.com/divanov-web/shorturl/internal/middleware"
+	"github.com/divanov-web/shorturl/internal/storage"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -22,7 +23,6 @@ func main() {
 	// делаем регистратор SugaredLogger
 	sugar := logger.Sugar()
 	middleware.SetLogger(sugar) // передаём логгер в middleware
-
 	//сброс буфера логгера (добавлено про запас по урокам)
 	defer func() {
 		if err := logger.Sync(); err != nil {
@@ -30,7 +30,12 @@ func main() {
 		}
 	}()
 
-	h := handlers.NewHandler(cfg.BaseURL)
+	store, err := storage.NewStorage(cfg.FileStoragePath)
+	if err != nil {
+		sugar.Fatalw("failed to initialize storage", "error", err)
+	}
+
+	h := handlers.NewHandler(cfg.BaseURL, store)
 
 	r := chi.NewRouter()
 
