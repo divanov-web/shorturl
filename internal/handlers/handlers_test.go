@@ -1,8 +1,13 @@
 package handlers
 
 import (
+	"bytes"
+	"encoding/json"
+	"github.com/divanov-web/shorturl/internal/config"
+	"github.com/divanov-web/shorturl/internal/middleware"
 	"github.com/divanov-web/shorturl/internal/storage"
 	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -48,12 +53,13 @@ func TestHandlePost(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := NewHandler("http://localhost:8080")
+			store := storage.NewTestStorage()
+			h := NewHandler("http://localhost:8080", store)
 
 			req := httptest.NewRequest(tt.method, "/", strings.NewReader(tt.body))
 			w := httptest.NewRecorder()
 
-			h.MainPage(w, req) // вызываем через структуру
+			h.MainPage(w, req)
 
 			result := w.Result()
 			defer result.Body.Close()
@@ -83,15 +89,15 @@ func TestHandleGet(t *testing.T) {
 		name   string
 		method string
 		path   string
-		setup  func()
+		setup  func(*storage.Storage)
 		want   want
 	}{
 		{
 			name:   "existing ID",
 			method: http.MethodGet,
 			path:   "/abc123",
-			setup: func() {
-				storage.ForceSet("abc123", "https://example.com")
+			setup: func(s *storage.Storage) {
+				s.ForceSet("abc123", "https://example.com")
 			},
 			want: want{
 				statusCode: http.StatusTemporaryRedirect,
@@ -102,7 +108,7 @@ func TestHandleGet(t *testing.T) {
 			name:   "non-existent ID",
 			method: http.MethodGet,
 			path:   "/doesnotexist",
-			setup:  func() {},
+			setup:  func(s *storage.Storage) {},
 			want: want{
 				statusCode: http.StatusBadRequest,
 			},
@@ -111,9 +117,10 @@ func TestHandleGet(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tt.setup()
+			store := storage.NewTestStorage()
+			tt.setup(store)
 
-			h := NewHandler("http://localhost:8080")
+			h := NewHandler("http://localhost:8080", store)
 
 			req := httptest.NewRequest(tt.method, tt.path, nil)
 			w := httptest.NewRecorder()
@@ -132,4 +139,40 @@ func TestHandleGet(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSetShortURL(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	defer logger.Sync()
+	sugar := logger.Sugar()
+	middleware.SetLogger(sugar)
+
+	cfg := config.NewConfig()
+	store := storage.NewTestStorage()
+	h := NewHandler(cfg.BaseURL, store)
+
+	r := chi.NewRouter()
+	r.Use(middleware.WithLogging)
+	r.Post("/api/shorten", h.SetShortURL)
+
+	// Сериализуем JSON-запрос
+	requestBody, err := json.Marshal(map[string]string{"url": "https://practicum.yandex.ru"})
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/shorten", bytes.NewBuffer(requestBody))
+	req.Header.Set("Content-Type", "application/json")
+
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusCreated, rec.Code)
+
+	contentType := rec.Header().Get("Content-Type")
+	assert.Contains(t, contentType, "application/json")
+
+	var resp DataResponse
+	err = json.Unmarshal(rec.Body.Bytes(), &resp)
+	require.NoError(t, err)
+	assert.NotEmpty(t, resp.Result)
+	assert.True(t, strings.HasPrefix(resp.Result, cfg.BaseURL+"/"))
 }

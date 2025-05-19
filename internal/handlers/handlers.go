@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"github.com/divanov-web/shorturl/internal/storage"
 	"github.com/go-chi/chi/v5"
 	"io"
@@ -11,11 +12,23 @@ import (
 
 type Handler struct {
 	BaseURL string
+	Storage *storage.Storage
 }
 
-func NewHandler(baseURL string) *Handler {
+// DataRequest Входящие данные
+type DataRequest struct {
+	URL string `json:"url"`
+}
+
+// DataResponse Исходящие данные
+type DataResponse struct {
+	Result string `json:"result"`
+}
+
+func NewHandler(baseURL string, store *storage.Storage) *Handler {
 	return &Handler{
 		BaseURL: baseURL,
+		Storage: store,
 	}
 }
 
@@ -45,17 +58,45 @@ func (h *Handler) MainPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	shortID := storage.MakeShort(originalURL)
+	shortID := h.Storage.MakeShort(originalURL)
 
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusCreated)
 	w.Write([]byte(h.BaseURL + "/" + shortID))
 }
 
+func (h *Handler) SetShortURL(w http.ResponseWriter, r *http.Request) {
+	var data DataRequest
+
+	// Декодируем JSON напрямую из тела
+	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
+		http.Error(w, "Невозможно прочитать JSON", http.StatusBadRequest)
+		return
+	}
+
+	originalURL := strings.TrimSpace(data.URL)
+	if originalURL == "" || !isValidURL(originalURL) {
+		http.Error(w, "Некорректный URL", http.StatusBadRequest)
+		return
+	}
+
+	shortID := h.Storage.MakeShort(originalURL)
+	result := DataResponse{
+		Result: h.BaseURL + "/" + shortID,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+
+	if err := json.NewEncoder(w).Encode(result); err != nil {
+		http.Error(w, "Ошибка сериализации ответа", http.StatusInternalServerError)
+	}
+}
+
 // GetRealURL Get запрос на получение ссылки из хеша
 func (h *Handler) GetRealURL(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	realURL, ok := storage.GetURL(id)
+	realURL, ok := h.Storage.GetURL(id)
 	if !ok {
 		w.WriteHeader(http.StatusBadRequest)
 		return
