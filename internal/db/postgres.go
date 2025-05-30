@@ -31,7 +31,6 @@ func NewPostgres(ctx context.Context, dsn string) (*Storage, error) {
 }
 
 func (s *Storage) Ping() error {
-	// Реализация метода Ping без передачи контекста (для соответствия интерфейсу DBPinger)
 	return s.Pool.Ping(context.Background())
 }
 
