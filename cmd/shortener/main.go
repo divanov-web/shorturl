@@ -1,14 +1,15 @@
 package main
 
 import (
+	"context"
 	"github.com/divanov-web/shorturl/internal/config"
+	"github.com/divanov-web/shorturl/internal/db"
 	"github.com/divanov-web/shorturl/internal/handlers"
 	"github.com/divanov-web/shorturl/internal/middleware"
 	"github.com/divanov-web/shorturl/internal/storage"
-	"net/http"
-
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
+	"net/http"
 )
 
 func main() {
@@ -30,12 +31,24 @@ func main() {
 		}
 	}()
 
+	//context
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	//DB
+	dbStorage, err := db.NewPostgres(ctx, cfg.DatabaseDSN)
+	if err != nil {
+		sugar.Fatalw("failed to connect to DB", "error", err)
+	}
+	defer dbStorage.Close()
+
+	//Storage
 	store, err := storage.NewStorage(cfg.FileStoragePath)
 	if err != nil {
 		sugar.Fatalw("failed to initialize storage", "error", err)
 	}
 
-	h := handlers.NewHandler(cfg.BaseURL, store)
+	h := handlers.NewHandler(cfg.BaseURL, store, dbStorage)
 
 	r := chi.NewRouter()
 
@@ -46,6 +59,7 @@ func main() {
 	r.Post("/", h.MainPage)
 	r.Post("/api/shorten", h.SetShortURL)
 	r.Get("/{id}", h.GetRealURL)
+	r.Get("/ping", h.PingDB)
 
 	sugar.Infow(
 		"Starting server",

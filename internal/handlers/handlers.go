@@ -13,6 +13,11 @@ import (
 type Handler struct {
 	BaseURL string
 	Storage *storage.Storage
+	DB      DBPinger
+}
+
+type DBPinger interface {
+	Ping() error
 }
 
 // DataRequest Входящие данные
@@ -25,10 +30,11 @@ type DataResponse struct {
 	Result string `json:"result"`
 }
 
-func NewHandler(baseURL string, store *storage.Storage) *Handler {
+func NewHandler(baseURL string, store *storage.Storage, db DBPinger) *Handler {
 	return &Handler{
 		BaseURL: baseURL,
 		Storage: store,
+		DB:      db,
 	}
 }
 
@@ -93,7 +99,7 @@ func (h *Handler) SetShortURL(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// GetRealURL Get запрос на получение ссылки из хеша
+// GetRealURL хэндлер Get запрос на получение ссылки из хеша
 func (h *Handler) GetRealURL(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	realURL, ok := h.Storage.GetURL(id)
@@ -102,6 +108,15 @@ func (h *Handler) GetRealURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, realURL, http.StatusTemporaryRedirect)
+}
+
+// PingDB хэндлер пинга ДБ
+func (h *Handler) PingDB(w http.ResponseWriter, r *http.Request) {
+	if err := h.DB.Ping(); err != nil {
+		http.Error(w, "database unavailable", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 }
 
 func isValidURL(raw string) bool {
