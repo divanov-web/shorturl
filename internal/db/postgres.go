@@ -23,9 +23,9 @@ func NewPostgres(ctx context.Context, dsn string) (*Storage, error) {
 	}
 
 	// Проверка соединения
-	if err := pool.Ping(ctx); err != nil {
+	/*if err := pool.Ping(ctx); err != nil {
 		return nil, fmt.Errorf("ping error: %w", err)
-	}
+	}*/
 
 	return &Storage{Pool: pool}, nil
 }
