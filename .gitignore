@@ -24,3 +24,4 @@ vendor/
 
 # Data
 *.json
+.env
