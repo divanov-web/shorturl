@@ -54,7 +54,7 @@ func TestHandlePost(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			store := storage.NewTestStorage()
-			h := NewHandler("http://localhost:8080", store)
+			h := NewHandler("http://localhost:8080", store, nil)
 
 			req := httptest.NewRequest(tt.method, "/", strings.NewReader(tt.body))
 			w := httptest.NewRecorder()
@@ -120,7 +120,7 @@ func TestHandleGet(t *testing.T) {
 			store := storage.NewTestStorage()
 			tt.setup(store)
 
-			h := NewHandler("http://localhost:8080", store)
+			h := NewHandler("http://localhost:8080", store, nil)
 
 			req := httptest.NewRequest(tt.method, tt.path, nil)
 			w := httptest.NewRecorder()
@@ -149,7 +149,7 @@ func TestSetShortURL(t *testing.T) {
 
 	cfg := config.NewConfig()
 	store := storage.NewTestStorage()
-	h := NewHandler(cfg.BaseURL, store)
+	h := NewHandler(cfg.BaseURL, store, nil)
 
 	r := chi.NewRouter()
 	r.Use(middleware.WithLogging)
