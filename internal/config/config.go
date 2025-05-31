@@ -3,6 +3,7 @@ package config
 import (
 	"flag"
 	"github.com/caarlos0/env/v6"
+	"github.com/joho/godotenv"
 	"log"
 )
 
@@ -15,7 +16,7 @@ type Config struct {
 
 func NewConfig() *Config {
 	// Загрузим .env только если переменные ещё не заданы в окружении
-	//_ = godotenv.Load()
+	_ = godotenv.Load()
 
 	// флаги без дефолтов
 	addrFlag := flag.String("a", "", "адрес запуска HTTP-сервера")

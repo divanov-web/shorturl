@@ -6,7 +6,8 @@ import (
 	"github.com/divanov-web/shorturl/internal/db"
 	"github.com/divanov-web/shorturl/internal/handlers"
 	"github.com/divanov-web/shorturl/internal/middleware"
-	"github.com/divanov-web/shorturl/internal/storage"
+	"github.com/divanov-web/shorturl/internal/service"
+	"github.com/divanov-web/shorturl/internal/storage/filestorage"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 	"net/http"
@@ -43,12 +44,14 @@ func main() {
 	defer dbStorage.Close()
 
 	//Storage
-	store, err := storage.NewStorage(cfg.FileStoragePath)
+	store, err := filestorage.NewStorage(cfg.FileStoragePath)
+	//store, err := memorystorage.NewStorage()
 	if err != nil {
 		sugar.Fatalw("failed to initialize storage", "error", err)
 	}
 
-	h := handlers.NewHandler(cfg.BaseURL, store, dbStorage)
+	urlService := service.NewURLService(cfg.BaseURL, store)
+	h := handlers.NewHandler(urlService, dbStorage)
 
 	r := chi.NewRouter()
 

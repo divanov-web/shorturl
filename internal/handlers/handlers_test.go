@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"github.com/divanov-web/shorturl/internal/config"
 	"github.com/divanov-web/shorturl/internal/middleware"
-	"github.com/divanov-web/shorturl/internal/storage"
+	"github.com/divanov-web/shorturl/internal/storage/filestorage"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 	"io"
@@ -53,7 +53,7 @@ func TestHandlePost(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			store := storage.NewTestStorage()
+			store := filestorage.NewTestStorage()
 			h := NewHandler("http://localhost:8080", store, nil)
 
 			req := httptest.NewRequest(tt.method, "/", strings.NewReader(tt.body))
@@ -89,14 +89,14 @@ func TestHandleGet(t *testing.T) {
 		name   string
 		method string
 		path   string
-		setup  func(*storage.Storage)
+		setup  func(*filestorage.Storage)
 		want   want
 	}{
 		{
 			name:   "existing ID",
 			method: http.MethodGet,
 			path:   "/abc123",
-			setup: func(s *storage.Storage) {
+			setup: func(s *filestorage.Storage) {
 				s.ForceSet("abc123", "https://example.com")
 			},
 			want: want{
@@ -108,7 +108,7 @@ func TestHandleGet(t *testing.T) {
 			name:   "non-existent ID",
 			method: http.MethodGet,
 			path:   "/doesnotexist",
-			setup:  func(s *storage.Storage) {},
+			setup:  func(s *filestorage.Storage) {},
 			want: want{
 				statusCode: http.StatusBadRequest,
 			},
@@ -117,7 +117,7 @@ func TestHandleGet(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			store := storage.NewTestStorage()
+			store := filestorage.NewTestStorage()
 			tt.setup(store)
 
 			h := NewHandler("http://localhost:8080", store, nil)
@@ -148,7 +148,7 @@ func TestSetShortURL(t *testing.T) {
 	middleware.SetLogger(sugar)
 
 	cfg := config.NewConfig()
-	store := storage.NewTestStorage()
+	store := filestorage.NewTestStorage()
 	h := NewHandler(cfg.BaseURL, store, nil)
 
 	r := chi.NewRouter()
