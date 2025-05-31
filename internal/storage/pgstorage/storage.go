@@ -16,6 +16,18 @@ type Storage struct {
 
 const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
+func NewPool(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
+	cfg, err := pgxpool.ParseConfig(dsn)
+	if err != nil {
+		return nil, fmt.Errorf("invalid DSN: %w", err)
+	}
+	pool, err := pgxpool.NewWithConfig(ctx, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to db: %w", err)
+	}
+	return pool, nil
+}
+
 func NewStorage(ctx context.Context, pool *pgxpool.Pool) (*Storage, error) {
 	storage := &Storage{
 		pool: pool,
@@ -70,4 +82,12 @@ func (s *Storage) GetURL(id string) (string, bool) {
 func (s *Storage) ForceSet(id, url string) {
 	ctx := context.Background()
 	_, _ = s.pool.Exec(ctx, `INSERT INTO short_urls (id, original_url) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING`, id, url)
+}
+
+func (s *Storage) Ping() error {
+	return s.pool.Ping(context.Background())
+}
+
+func (s *Storage) Close() {
+	s.pool.Close()
 }

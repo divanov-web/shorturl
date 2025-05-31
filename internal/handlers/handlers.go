@@ -12,7 +12,6 @@ import (
 
 type Handler struct {
 	Service *service.URLService
-	DB      DBPinger
 }
 
 type DBPinger interface {
@@ -29,11 +28,8 @@ type DataResponse struct {
 	Result string `json:"result"`
 }
 
-func NewHandler(svc *service.URLService, db DBPinger) *Handler {
-	return &Handler{
-		Service: svc,
-		DB:      db,
-	}
+func NewHandler(svc *service.URLService) *Handler {
+	return &Handler{Service: svc}
 }
 
 // MainPage POST запрос на отправку большой ссылки и возвращение короткой ссылки в виде хеша
@@ -116,7 +112,7 @@ func (h *Handler) GetRealURL(w http.ResponseWriter, r *http.Request) {
 
 // PingDB хэндлер пинга ДБ
 func (h *Handler) PingDB(w http.ResponseWriter, r *http.Request) {
-	if err := h.DB.Ping(); err != nil {
+	if err := h.Service.Ping(); err != nil {
 		http.Error(w, "database unavailable", http.StatusInternalServerError)
 		return
 	}

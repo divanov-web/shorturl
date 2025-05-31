@@ -112,6 +112,10 @@ func (s *Storage) loadFromFile() error {
 	return scanner.Err()
 }
 
+func (s *Storage) Ping() error {
+	return nil
+}
+
 func NewTestStorage() *Storage {
 	return &Storage{
 		data: make(map[string]string),

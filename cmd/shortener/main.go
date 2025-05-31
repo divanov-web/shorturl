@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"github.com/divanov-web/shorturl/internal/config"
-	"github.com/divanov-web/shorturl/internal/db"
 	"github.com/divanov-web/shorturl/internal/handlers"
 	"github.com/divanov-web/shorturl/internal/middleware"
 	"github.com/divanov-web/shorturl/internal/service"
@@ -39,41 +38,13 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	//DB
-	dbStorage, err := db.NewPostgres(ctx, cfg.DatabaseDSN)
-	if err != nil {
-		sugar.Fatalw("failed to connect to DB", "error", err)
-	}
-	defer dbStorage.Close()
-
-	//Storage
-	var store storage.Storage
-	if cfg.StorageType != "postgres" {
-		pg, err := db.NewPostgres(ctx, cfg.DatabaseDSN)
-		if err != nil {
-			sugar.Fatalw("failed to connect to DB", "error", err)
-		}
-		defer pg.Close()
-
-		store, err = pgstorage.NewStorage(ctx, pg.Pool)
-		if err != nil {
-			sugar.Fatalw("failed to init pg storage", "error", err)
-		}
-	} else if cfg.StorageType != "file" {
-		store, err = filestorage.NewStorage(cfg.FileStoragePath)
-		if err != nil {
-			sugar.Fatalw("failed to init file storage", "error", err)
-		}
-	} else {
-		store, _ = memorystorage.NewStorage()
-	}
-	//store, err := memorystorage.NewStorage()
+	store, err := initStorage(ctx, cfg)
 	if err != nil {
 		sugar.Fatalw("failed to initialize storage", "error", err)
 	}
 
 	urlService := service.NewURLService(cfg.BaseURL, store)
-	h := handlers.NewHandler(urlService, dbStorage)
+	h := handlers.NewHandler(urlService)
 
 	r := chi.NewRouter()
 
@@ -102,4 +73,26 @@ func main() {
 		sugar.Fatalw("Server failed", "error", err)
 	}
 
+}
+
+func initStorage(ctx context.Context, cfg *config.Config) (storage.Storage, error) {
+	switch cfg.StorageType {
+	case "postgres":
+		pool, err := pgstorage.NewPool(ctx, cfg.DatabaseDSN)
+		if err != nil {
+			return nil, err
+		}
+		store, err := pgstorage.NewStorage(ctx, pool)
+		if err != nil {
+			pool.Close()
+			return nil, err
+		}
+		return store, nil
+
+	case "file":
+		return filestorage.NewStorage(cfg.FileStoragePath)
+
+	default:
+		return memorystorage.NewStorage()
+	}
 }

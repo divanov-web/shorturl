@@ -52,6 +52,10 @@ func (s *Storage) ForceSet(id, url string) {
 	s.data[id] = url
 }
 
+func (s *Storage) Ping() error {
+	return nil
+}
+
 func NewTestStorage() *Storage {
 	return &Storage{
 		data: make(map[string]string),

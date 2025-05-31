@@ -31,3 +31,10 @@ func (s *URLService) CreateShort(original string) (string, error) {
 func (s *URLService) ResolveShort(id string) (string, bool) {
 	return s.Repo.GetURL(id)
 }
+
+func (s *URLService) Ping() error {
+	if pinger, ok := s.Repo.(interface{ Ping() error }); ok {
+		return pinger.Ping()
+	}
+	return nil
+}
