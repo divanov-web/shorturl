@@ -1,39 +1,27 @@
 package memorystorage
 
 import (
-	"math/rand"
+	"github.com/divanov-web/shorturl/internal/storage"
+	"github.com/divanov-web/shorturl/internal/utils/idgen"
 	"sync"
-	"time"
 )
 
 type Storage struct {
 	data map[string]string
 	mu   sync.RWMutex
-	rnd  *rand.Rand
 }
-
-const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 func NewStorage() (*Storage, error) {
 	return &Storage{
 		data: make(map[string]string),
-		rnd:  rand.New(rand.NewSource(time.Now().UnixNano())),
 	}, nil
 }
 
-func (s *Storage) generateID(n int) string {
-	b := make([]byte, n)
-	for i := range b {
-		b[i] = charset[s.rnd.Intn(len(charset))]
-	}
-	return string(b)
-}
-
-func (s *Storage) MakeShort(original string) (string, error) {
+func (s *Storage) SaveURL(original string) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	id := s.generateID(8)
+	id := idgen.Generate(8)
 	s.data[id] = original
 
 	return id, nil
@@ -59,6 +47,19 @@ func (s *Storage) Ping() error {
 func NewTestStorage() *Storage {
 	return &Storage{
 		data: make(map[string]string),
-		rnd:  rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
+}
+
+func (s *Storage) BatchSave(entries []storage.BatchEntry) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for _, entry := range entries {
+		// не перезаписываем, если уже существует
+		if _, exists := s.data[entry.ShortURL]; !exists {
+			s.data[entry.ShortURL] = entry.OriginalURL
+		}
+	}
+
+	return nil
 }

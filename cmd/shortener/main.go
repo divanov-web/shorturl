@@ -56,6 +56,7 @@ func main() {
 	r.Post("/api/shorten", h.SetShortURL)
 	r.Get("/{id}", h.GetRealURL)
 	r.Get("/ping", h.PingDB)
+	r.Post("/api/shorten/batch", h.SetShortenBatch)
 
 	sugar.Infow(
 		"Starting server",

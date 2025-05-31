@@ -1,13 +1,9 @@
 package handlers
 
 import (
-	"encoding/json"
 	"github.com/divanov-web/shorturl/internal/service"
-	"github.com/go-chi/chi/v5"
-	"io"
 	"net/http"
 	"net/url"
-	"strings"
 )
 
 type Handler struct {
@@ -30,84 +26,6 @@ type DataResponse struct {
 
 func NewHandler(svc *service.URLService) *Handler {
 	return &Handler{Service: svc}
-}
-
-// MainPage POST запрос на отправку большой ссылки и возвращение короткой ссылки в виде хеша
-func (h *Handler) MainPage(w http.ResponseWriter, r *http.Request) {
-	var originalURL string
-
-	ct := r.Header.Get("Content-Type")
-	switch {
-	case ct == "application/x-www-form-urlencoded":
-		if err := r.ParseForm(); err != nil {
-			http.Error(w, "Ошибка парсинга формы", http.StatusBadRequest)
-			return
-		}
-		originalURL = r.FormValue("url")
-	default:
-		body, err := io.ReadAll(r.Body)
-		if err != nil || len(body) == 0 {
-			http.Error(w, "Пустое тело запроса", http.StatusBadRequest)
-			return
-		}
-		originalURL = strings.TrimSpace(string(body))
-	}
-
-	if originalURL == "" || !isValidURL(originalURL) {
-		http.Error(w, "Некорректный URL", http.StatusBadRequest)
-		return
-	}
-
-	shortURL, err := h.Service.CreateShort(originalURL)
-	if err != nil {
-		http.Error(w, "Некорректный URL", http.StatusBadRequest)
-		return
-	}
-
-	w.Header().Set("Content-Type", "text/plain")
-	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte(shortURL))
-}
-
-func (h *Handler) SetShortURL(w http.ResponseWriter, r *http.Request) {
-	var data DataRequest
-
-	// Декодируем JSON напрямую из тела
-	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
-		http.Error(w, "Невозможно прочитать JSON", http.StatusBadRequest)
-		return
-	}
-
-	originalURL := strings.TrimSpace(data.URL)
-	if originalURL == "" || !isValidURL(originalURL) {
-		http.Error(w, "Некорректный URL", http.StatusBadRequest)
-		return
-	}
-
-	shortURL, err := h.Service.CreateShort(originalURL)
-	if err != nil {
-		http.Error(w, "Некорректный URL", http.StatusBadRequest)
-		return
-	}
-	result := DataResponse{Result: shortURL}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-
-	if err := json.NewEncoder(w).Encode(result); err != nil {
-		http.Error(w, "Ошибка сериализации ответа", http.StatusInternalServerError)
-	}
-}
-
-// GetRealURL хэндлер Get запрос на получение ссылки из хеша
-func (h *Handler) GetRealURL(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
-	realURL, ok := h.Service.ResolveShort(id)
-	if !ok {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	http.Redirect(w, r, realURL, http.StatusTemporaryRedirect)
 }
 
 // PingDB хэндлер пинга ДБ

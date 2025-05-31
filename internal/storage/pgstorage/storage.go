@@ -4,17 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/divanov-web/shorturl/internal/storage"
+	"github.com/divanov-web/shorturl/internal/utils/idgen"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"math/rand"
-	"time"
 )
 
 type Storage struct {
 	pool *pgxpool.Pool
-	rnd  *rand.Rand
 }
-
-const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 func NewPool(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
 	cfg, err := pgxpool.ParseConfig(dsn)
@@ -31,7 +28,6 @@ func NewPool(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
 func NewStorage(ctx context.Context, pool *pgxpool.Pool) (*Storage, error) {
 	storage := &Storage{
 		pool: pool,
-		rnd:  rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 
 	if err := storage.ensureTable(ctx); err != nil {
@@ -44,27 +40,21 @@ func NewStorage(ctx context.Context, pool *pgxpool.Pool) (*Storage, error) {
 func (s *Storage) ensureTable(ctx context.Context) error {
 	_, err := s.pool.Exec(ctx, `
 		CREATE TABLE IF NOT EXISTS short_urls (
-			id TEXT PRIMARY KEY,
-			original_url TEXT NOT NULL
-		)
+			id SERIAL PRIMARY KEY,
+			short_url TEXT UNIQUE NOT NULL,
+			original_url TEXT NOT NULL,
+			correlation_id TEXT
+		);
 	`)
 	return err
 }
 
-func (s *Storage) generateID(n int) string {
-	b := make([]byte, n)
-	for i := range b {
-		b[i] = charset[s.rnd.Intn(len(charset))]
-	}
-	return string(b)
-}
-
-func (s *Storage) MakeShort(original string) (string, error) {
+func (s *Storage) SaveURL(original string) (string, error) {
 	ctx := context.Background()
-	id := s.generateID(8)
-	_, err := s.pool.Exec(ctx, `INSERT INTO short_urls (id, original_url) VALUES ($1, $2)`, id, original)
+	shortURL := idgen.Generate(8)
+	_, err := s.pool.Exec(ctx, `INSERT INTO short_urls (short_url, original_url) VALUES ($1, $2)`, shortURL, original)
 	if err == nil {
-		return id, nil
+		return shortURL, nil
 	}
 	return "", errors.New("failed to generate unique short ID")
 }
@@ -72,16 +62,16 @@ func (s *Storage) MakeShort(original string) (string, error) {
 func (s *Storage) GetURL(id string) (string, bool) {
 	ctx := context.Background()
 	var url string
-	err := s.pool.QueryRow(ctx, `SELECT original_url FROM short_urls WHERE id = $1`, id).Scan(&url)
+	err := s.pool.QueryRow(ctx, `SELECT original_url FROM short_urls WHERE short_url = $1`, id).Scan(&url)
 	if err != nil {
 		return "", false
 	}
 	return url, true
 }
 
-func (s *Storage) ForceSet(id, url string) {
+func (s *Storage) ForceSet(shortURL, url string) {
 	ctx := context.Background()
-	_, _ = s.pool.Exec(ctx, `INSERT INTO short_urls (id, original_url) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING`, id, url)
+	_, _ = s.pool.Exec(ctx, `INSERT INTO short_urls (short_url, original_url) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING`, shortURL, url)
 }
 
 func (s *Storage) Ping() error {
@@ -90,4 +80,27 @@ func (s *Storage) Ping() error {
 
 func (s *Storage) Close() {
 	s.pool.Close()
+}
+
+// BatchSave сохраняет парные значения id+url в рамках одной транзакции
+func (s *Storage) BatchSave(entries []storage.BatchEntry) error {
+	ctx := context.Background()
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	for _, e := range entries {
+		_, err := tx.Exec(ctx, `
+			INSERT INTO short_urls (short_url, original_url, correlation_id)
+			VALUES ($1, $2, $3)
+			ON CONFLICT (short_url) DO NOTHING
+		`, e.ShortURL, e.OriginalURL, e.CorrelationID)
+		if err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit(ctx)
 }

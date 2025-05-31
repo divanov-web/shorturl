@@ -1,8 +1,14 @@
 package storage
 
+type BatchEntry struct {
+	ShortURL      string
+	OriginalURL   string
+	CorrelationID string
+}
+
 type Storage interface {
-	MakeShort(original string) (string, error)
+	SaveURL(original string) (string, error)
 	GetURL(id string) (string, bool)
-	ForceSet(id, url string)
-	Ping() error // новый метод
+	Ping() error
+	BatchSave(entries []BatchEntry) error
 }

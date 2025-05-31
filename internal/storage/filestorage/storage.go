@@ -4,7 +4,8 @@ import (
 	"bufio"
 	"encoding/json"
 	"errors"
-	"math/rand"
+	"github.com/divanov-web/shorturl/internal/storage"
+	"github.com/divanov-web/shorturl/internal/utils/idgen"
 	"os"
 	"sync"
 	"time"
@@ -20,16 +21,12 @@ type Storage struct {
 	data     map[string]string
 	mu       sync.RWMutex
 	filePath string
-	rnd      *rand.Rand
 }
-
-const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 func NewStorage(filePath string) (*Storage, error) {
 	s := &Storage{
 		data:     make(map[string]string),
 		filePath: filePath,
-		rnd:      rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 
 	// Загружаем данные из файла (если файл существует)
@@ -40,19 +37,11 @@ func NewStorage(filePath string) (*Storage, error) {
 	return s, nil
 }
 
-func (s *Storage) generateID(n int) string {
-	b := make([]byte, n)
-	for i := range b {
-		b[i] = charset[s.rnd.Intn(len(charset))]
-	}
-	return string(b)
-}
-
-func (s *Storage) MakeShort(original string) (string, error) {
+func (s *Storage) SaveURL(original string) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	id := s.generateID(8)
+	id := idgen.Generate(8)
 	s.data[id] = original
 
 	_ = s.appendToFile(Item{
@@ -119,6 +108,25 @@ func (s *Storage) Ping() error {
 func NewTestStorage() *Storage {
 	return &Storage{
 		data: make(map[string]string),
-		rnd:  rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
+}
+
+func (s *Storage) BatchSave(entries []storage.BatchEntry) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for _, entry := range entries {
+		if _, exists := s.data[entry.ShortURL]; exists {
+			continue
+		}
+		s.data[entry.ShortURL] = entry.OriginalURL
+
+		_ = s.appendToFile(Item{
+			UUID:        time.Now().Format("20060102150405.000000"),
+			ShortURL:    entry.ShortURL,
+			OriginalURL: entry.OriginalURL,
+		})
+	}
+
+	return nil
 }
