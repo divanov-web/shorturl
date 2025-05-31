@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"github.com/divanov-web/shorturl/internal/config"
 	"github.com/divanov-web/shorturl/internal/middleware"
+	"github.com/divanov-web/shorturl/internal/service"
 	"github.com/divanov-web/shorturl/internal/storage/filestorage"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
@@ -54,7 +55,8 @@ func TestHandlePost(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			store := filestorage.NewTestStorage()
-			h := NewHandler("http://localhost:8080", store, nil)
+			svc := service.NewURLService("http://localhost:8080", store)
+			h := NewHandler(svc, nil)
 
 			req := httptest.NewRequest(tt.method, "/", strings.NewReader(tt.body))
 			w := httptest.NewRecorder()
@@ -119,8 +121,8 @@ func TestHandleGet(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			store := filestorage.NewTestStorage()
 			tt.setup(store)
-
-			h := NewHandler("http://localhost:8080", store, nil)
+			svc := service.NewURLService("http://localhost:8080", store)
+			h := NewHandler(svc, nil)
 
 			req := httptest.NewRequest(tt.method, tt.path, nil)
 			w := httptest.NewRecorder()
@@ -149,13 +151,13 @@ func TestSetShortURL(t *testing.T) {
 
 	cfg := config.NewConfig()
 	store := filestorage.NewTestStorage()
-	h := NewHandler(cfg.BaseURL, store, nil)
+	svc := service.NewURLService(cfg.BaseURL, store)
+	h := NewHandler(svc, nil)
 
 	r := chi.NewRouter()
 	r.Use(middleware.WithLogging)
 	r.Post("/api/shorten", h.SetShortURL)
 
-	// Сериализуем JSON-запрос
 	requestBody, err := json.Marshal(map[string]string{"url": "https://practicum.yandex.ru"})
 	require.NoError(t, err)
 
