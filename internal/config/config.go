@@ -32,6 +32,7 @@ func NewConfig() *Config {
 		log.Fatal(err)
 	}
 
+	FileStoragePath := chooseValue(envCfg.FileStoragePath, *filePathFlag, "shortener_data.json")
 	// Формируем итоговую конфигурацию с приоритетами:
 	// 1. Переменная окружения
 	// 2. Флаг командной строки
@@ -39,9 +40,9 @@ func NewConfig() *Config {
 	cfg := &Config{
 		ServerAddress:   chooseValue(envCfg.ServerAddress, *addrFlag, "localhost:8080"),
 		BaseURL:         chooseValue(envCfg.BaseURL, *baseFlag, "http://localhost:8080"),
-		FileStoragePath: chooseValue(envCfg.FileStoragePath, *filePathFlag, "shortener_data.json"),
+		FileStoragePath: FileStoragePath,
 		DatabaseDSN:     chooseValue(envCfg.DatabaseDSN, *dbDSNFlag, ""),
-		StorageType:     detectStorageType(envCfg.DatabaseDSN, *filePathFlag),
+		StorageType:     detectStorageType(envCfg.DatabaseDSN, FileStoragePath),
 	}
 
 	return cfg

@@ -62,10 +62,11 @@ func main() {
 		"addr", cfg.ServerAddress,
 	)
 
-	sugar.Infow("Starting server",
+	sugar.Infow("Config",
 		"ServerAddress", cfg.ServerAddress,
 		"BaseURL", cfg.BaseURL,
 		"DatabaseDSN", cfg.DatabaseDSN,
+		"FileStoragePath", cfg.FileStoragePath,
 		"StorageType", cfg.StorageType,
 	)
 
