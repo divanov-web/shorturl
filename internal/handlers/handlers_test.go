@@ -56,7 +56,7 @@ func TestHandlePost(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			store := filestorage.NewTestStorage()
 			svc := service.NewURLService("http://localhost:8080", store)
-			h := NewHandler(svc, nil)
+			h := NewHandler(svc)
 
 			req := httptest.NewRequest(tt.method, "/", strings.NewReader(tt.body))
 			w := httptest.NewRecorder()
@@ -122,7 +122,7 @@ func TestHandleGet(t *testing.T) {
 			store := filestorage.NewTestStorage()
 			tt.setup(store)
 			svc := service.NewURLService("http://localhost:8080", store)
-			h := NewHandler(svc, nil)
+			h := NewHandler(svc)
 
 			req := httptest.NewRequest(tt.method, tt.path, nil)
 			w := httptest.NewRecorder()
@@ -152,7 +152,7 @@ func TestSetShortURL(t *testing.T) {
 	cfg := config.NewConfig()
 	store := filestorage.NewTestStorage()
 	svc := service.NewURLService(cfg.BaseURL, store)
-	h := NewHandler(svc, nil)
+	h := NewHandler(svc)
 
 	r := chi.NewRouter()
 	r.Use(middleware.WithLogging)
