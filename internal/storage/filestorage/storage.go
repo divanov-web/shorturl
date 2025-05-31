@@ -48,7 +48,7 @@ func (s *Storage) generateID(n int) string {
 	return string(b)
 }
 
-func (s *Storage) MakeShort(original string) string {
+func (s *Storage) MakeShort(original string) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -61,7 +61,7 @@ func (s *Storage) MakeShort(original string) string {
 		OriginalURL: original,
 	})
 
-	return id
+	return id, nil
 }
 
 func (s *Storage) GetURL(id string) (string, bool) {

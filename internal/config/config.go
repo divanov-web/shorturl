@@ -12,6 +12,7 @@ type Config struct {
 	BaseURL         string `env:"BASE_URL"`
 	FileStoragePath string `env:"FILE_STORAGE_PATH"`
 	DatabaseDSN     string `env:"DATABASE_DSN"`
+	StorageType     string //определяется автоматически
 }
 
 func NewConfig() *Config {
@@ -31,16 +32,22 @@ func NewConfig() *Config {
 		log.Fatal(err)
 	}
 
+	// Формируем итоговую конфигурацию с приоритетами:
+	// 1. Переменная окружения
+	// 2. Флаг командной строки
+	// 3. Значение по умолчанию
 	cfg := &Config{
 		ServerAddress:   chooseValue(envCfg.ServerAddress, *addrFlag, "localhost:8080"),
 		BaseURL:         chooseValue(envCfg.BaseURL, *baseFlag, "http://localhost:8080"),
 		FileStoragePath: chooseValue(envCfg.FileStoragePath, *filePathFlag, "shortener_data.json"),
 		DatabaseDSN:     chooseValue(envCfg.DatabaseDSN, *dbDSNFlag, ""),
+		StorageType:     detectStorageType(envCfg.DatabaseDSN, *filePathFlag),
 	}
 
 	return cfg
 }
 
+// chooseValue определяет очерёдность параметров конфига
 func chooseValue(envVal, flagVal, defaultVal string) string {
 	if envVal != "" {
 		return envVal
@@ -49,4 +56,14 @@ func chooseValue(envVal, flagVal, defaultVal string) string {
 		return flagVal
 	}
 	return defaultVal
+}
+
+func detectStorageType(dsn, filePath string) string {
+	if dsn != "" {
+		return "postgres"
+	}
+	if filePath != "" {
+		return "file"
+	}
+	return "memory"
 }

@@ -9,10 +9,10 @@ import (
 
 type URLService struct {
 	BaseURL string
-	Repo    storage.Repository
+	Repo    storage.Storage
 }
 
-func NewURLService(baseURL string, repo storage.Repository) *URLService {
+func NewURLService(baseURL string, repo storage.Storage) *URLService {
 	return &URLService{
 		BaseURL: baseURL,
 		Repo:    repo,
@@ -24,8 +24,8 @@ func (s *URLService) CreateShort(original string) (string, error) {
 	if original == "" {
 		return "", fmt.Errorf("empty original URL")
 	}
-	id := s.Repo.MakeShort(original)
-	return fmt.Sprintf("%s/%s", s.BaseURL, id), nil
+	id, err := s.Repo.MakeShort(original)
+	return fmt.Sprintf("%s/%s", s.BaseURL, id), err
 }
 
 func (s *URLService) ResolveShort(id string) (string, bool) {
