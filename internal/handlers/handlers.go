@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
-	"github.com/divanov-web/shorturl/internal/storage"
+	"github.com/divanov-web/shorturl/internal/service"
 	"github.com/go-chi/chi/v5"
 	"io"
 	"net/http"
@@ -11,8 +11,12 @@ import (
 )
 
 type Handler struct {
-	BaseURL string
-	Storage *storage.Storage
+	Service *service.URLService
+	DB      DBPinger
+}
+
+type DBPinger interface {
+	Ping() error
 }
 
 // DataRequest Входящие данные
@@ -25,10 +29,10 @@ type DataResponse struct {
 	Result string `json:"result"`
 }
 
-func NewHandler(baseURL string, store *storage.Storage) *Handler {
+func NewHandler(svc *service.URLService, db DBPinger) *Handler {
 	return &Handler{
-		BaseURL: baseURL,
-		Storage: store,
+		Service: svc,
+		DB:      db,
 	}
 }
 
@@ -58,11 +62,15 @@ func (h *Handler) MainPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	shortID := h.Storage.MakeShort(originalURL)
+	shortURL, err := h.Service.CreateShort(originalURL)
+	if err != nil {
+		http.Error(w, "Некорректный URL", http.StatusBadRequest)
+		return
+	}
 
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte(h.BaseURL + "/" + shortID))
+	w.Write([]byte(shortURL))
 }
 
 func (h *Handler) SetShortURL(w http.ResponseWriter, r *http.Request) {
@@ -80,10 +88,12 @@ func (h *Handler) SetShortURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	shortID := h.Storage.MakeShort(originalURL)
-	result := DataResponse{
-		Result: h.BaseURL + "/" + shortID,
+	shortURL, err := h.Service.CreateShort(originalURL)
+	if err != nil {
+		http.Error(w, "Некорректный URL", http.StatusBadRequest)
+		return
 	}
+	result := DataResponse{Result: shortURL}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
@@ -93,15 +103,24 @@ func (h *Handler) SetShortURL(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// GetRealURL Get запрос на получение ссылки из хеша
+// GetRealURL хэндлер Get запрос на получение ссылки из хеша
 func (h *Handler) GetRealURL(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	realURL, ok := h.Storage.GetURL(id)
+	realURL, ok := h.Service.ResolveShort(id)
 	if !ok {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	http.Redirect(w, r, realURL, http.StatusTemporaryRedirect)
+}
+
+// PingDB хэндлер пинга ДБ
+func (h *Handler) PingDB(w http.ResponseWriter, r *http.Request) {
+	if err := h.DB.Ping(); err != nil {
+		http.Error(w, "database unavailable", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 }
 
 func isValidURL(raw string) bool {
