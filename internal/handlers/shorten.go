@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"github.com/divanov-web/shorturl/internal/service"
 	"github.com/go-chi/chi/v5"
 	"net/http"
@@ -24,6 +25,13 @@ func (h *Handler) SetShortURL(w http.ResponseWriter, r *http.Request) {
 	}
 
 	shortURL, err := h.Service.CreateShort(originalURL)
+	if errors.Is(err, service.ErrAlreadyExists) {
+		result := DataResponse{Result: shortURL}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusConflict) // 409
+		_ = json.NewEncoder(w).Encode(result)
+		return
+	}
 	if err != nil {
 		http.Error(w, "Ошибка преобразования URL", http.StatusBadRequest)
 		return

@@ -1,11 +1,12 @@
 package service
 
 import (
+	"errors"
 	"fmt"
-	"github.com/divanov-web/shorturl/internal/utils/idgen"
 	"strings"
 
 	"github.com/divanov-web/shorturl/internal/storage"
+	"github.com/divanov-web/shorturl/internal/utils/idgen"
 )
 
 type BatchRequestItem struct {
@@ -23,6 +24,8 @@ type URLService struct {
 	Repo    storage.Storage
 }
 
+var ErrAlreadyExists = errors.New("url already exists (service)")
+
 func NewURLService(baseURL string, repo storage.Storage) *URLService {
 	return &URLService{
 		BaseURL: baseURL,
@@ -35,7 +38,12 @@ func (s *URLService) CreateShort(original string) (string, error) {
 	if original == "" {
 		return "", fmt.Errorf("empty original URL")
 	}
+
 	id, err := s.Repo.SaveURL(original)
+	if errors.Is(err, storage.ErrConflict) {
+		return fmt.Sprintf("%s/%s", s.BaseURL, id), ErrAlreadyExists
+	}
+
 	return fmt.Sprintf("%s/%s", s.BaseURL, id), err
 }
 

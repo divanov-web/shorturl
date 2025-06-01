@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"github.com/divanov-web/shorturl/internal/storage"
 	"github.com/divanov-web/shorturl/internal/utils/idgen"
+	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -42,7 +44,7 @@ func (s *Storage) ensureTable(ctx context.Context) error {
 		CREATE TABLE IF NOT EXISTS short_urls (
 			id SERIAL PRIMARY KEY,
 			short_url TEXT UNIQUE NOT NULL,
-			original_url TEXT NOT NULL,
+			original_url TEXT UNIQUE NOT NULL,
 			correlation_id TEXT
 		);
 	`)
@@ -52,11 +54,29 @@ func (s *Storage) ensureTable(ctx context.Context) error {
 func (s *Storage) SaveURL(original string) (string, error) {
 	ctx := context.Background()
 	shortURL := idgen.Generate(8)
-	_, err := s.pool.Exec(ctx, `INSERT INTO short_urls (short_url, original_url) VALUES ($1, $2)`, shortURL, original)
+
+	_, err := s.pool.Exec(ctx,
+		`INSERT INTO short_urls (short_url, original_url) VALUES ($1, $2)`,
+		shortURL, original,
+	)
 	if err == nil {
 		return shortURL, nil
 	}
-	return "", errors.New("failed to generate unique short ID")
+
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
+		// Запись уже есть — достаём существующий short_url
+		var existing string
+		queryErr := s.pool.QueryRow(ctx,
+			`SELECT short_url FROM short_urls WHERE original_url = $1`,
+			original,
+		).Scan(&existing)
+		if queryErr == nil {
+			return existing, storage.ErrConflict
+		}
+	}
+
+	return "", fmt.Errorf("save failed: %w", err)
 }
 
 func (s *Storage) GetURL(id string) (string, bool) {

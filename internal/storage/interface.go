@@ -1,5 +1,7 @@
 package storage
 
+import "errors"
+
 type BatchEntry struct {
 	ShortURL      string
 	OriginalURL   string
@@ -12,3 +14,5 @@ type Storage interface {
 	Ping() error
 	BatchSave(entries []BatchEntry) error
 }
+
+var ErrConflict = errors.New("url already exists (storage)")

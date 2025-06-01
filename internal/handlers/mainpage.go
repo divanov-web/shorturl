@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"errors"
+	"github.com/divanov-web/shorturl/internal/service"
 	"io"
 	"net/http"
 	"strings"
@@ -33,6 +35,12 @@ func (h *Handler) MainPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	shortURL, err := h.Service.CreateShort(originalURL)
+	if errors.Is(err, service.ErrAlreadyExists) {
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusConflict) // 409
+		w.Write([]byte(shortURL))
+		return
+	}
 	if err != nil {
 		http.Error(w, "Некорректный URL", http.StatusBadRequest)
 		return
