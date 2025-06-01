@@ -8,6 +8,16 @@ import (
 	"github.com/divanov-web/shorturl/internal/storage"
 )
 
+type BatchRequestItem struct {
+	CorrelationID string `json:"correlation_id"`
+	OriginalURL   string `json:"original_url"`
+}
+
+type ShortenBatchResult struct {
+	CorrelationID string `json:"correlation_id"`
+	ShortURL      string `json:"short_url"`
+}
+
 type URLService struct {
 	BaseURL string
 	Repo    storage.Storage
