@@ -1,14 +1,18 @@
 package main
 
 import (
+	"context"
 	"github.com/divanov-web/shorturl/internal/config"
 	"github.com/divanov-web/shorturl/internal/handlers"
 	"github.com/divanov-web/shorturl/internal/middleware"
+	"github.com/divanov-web/shorturl/internal/service"
 	"github.com/divanov-web/shorturl/internal/storage"
-	"net/http"
-
+	"github.com/divanov-web/shorturl/internal/storage/filestorage"
+	"github.com/divanov-web/shorturl/internal/storage/memorystorage"
+	"github.com/divanov-web/shorturl/internal/storage/pgstorage"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
+	"net/http"
 )
 
 func main() {
@@ -30,12 +34,17 @@ func main() {
 		}
 	}()
 
-	store, err := storage.NewStorage(cfg.FileStoragePath)
+	//context
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	store, err := initStorage(ctx, cfg)
 	if err != nil {
 		sugar.Fatalw("failed to initialize storage", "error", err)
 	}
 
-	h := handlers.NewHandler(cfg.BaseURL, store)
+	urlService := service.NewURLService(cfg.BaseURL, store)
+	h := handlers.NewHandler(urlService)
 
 	r := chi.NewRouter()
 
@@ -46,14 +55,46 @@ func main() {
 	r.Post("/", h.MainPage)
 	r.Post("/api/shorten", h.SetShortURL)
 	r.Get("/{id}", h.GetRealURL)
+	r.Get("/ping", h.PingDB)
+	r.Post("/api/shorten/batch", h.SetShortenBatch)
 
 	sugar.Infow(
 		"Starting server",
 		"addr", cfg.ServerAddress,
 	)
 
+	sugar.Infow("Config",
+		"ServerAddress", cfg.ServerAddress,
+		"BaseURL", cfg.BaseURL,
+		"DatabaseDSN", cfg.DatabaseDSN,
+		"FileStoragePath", cfg.FileStoragePath,
+		"StorageType", cfg.StorageType,
+	)
+
 	if err := http.ListenAndServe(cfg.ServerAddress, r); err != nil {
 		sugar.Fatalw("Server failed", "error", err)
 	}
 
+}
+
+func initStorage(ctx context.Context, cfg *config.Config) (storage.Storage, error) {
+	switch cfg.StorageType {
+	case "postgres":
+		pool, err := pgstorage.NewPool(ctx, cfg.DatabaseDSN)
+		if err != nil {
+			return nil, err
+		}
+		store, err := pgstorage.NewStorage(ctx, pool)
+		if err != nil {
+			pool.Close()
+			return nil, err
+		}
+		return store, nil
+
+	case "file":
+		return filestorage.NewStorage(cfg.FileStoragePath)
+
+	default:
+		return memorystorage.NewStorage()
+	}
 }
