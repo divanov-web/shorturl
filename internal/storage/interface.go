@@ -9,10 +9,10 @@ type BatchEntry struct {
 }
 
 type Storage interface {
-	SaveURL(original string) (string, error)
+	SaveURL(userID string, original string) (string, error)
 	GetURL(id string) (string, bool)
 	Ping() error
-	BatchSave(entries []BatchEntry) error
+	BatchSave(userID string, entries []BatchEntry) error
 }
 
 var ErrConflict = errors.New("url already exists (storage)")

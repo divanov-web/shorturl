@@ -49,8 +49,11 @@ func main() {
 	r := chi.NewRouter()
 
 	r.Use(middleware.WithDecompress)
-	r.Use(middleware.WithLogging)
-	r.Use(middleware.WithGzipBuffered)
+	r.Use(middleware.WithLogging)      //логирование
+	r.Use(middleware.WithGzipBuffered) //сжатие
+
+	auth := middleware.NewAuth(cfg.AuthSecret) //авторизация
+	r.Use(auth.WithAuth)
 
 	r.Post("/", h.MainPage)
 	r.Post("/api/shorten", h.SetShortURL)

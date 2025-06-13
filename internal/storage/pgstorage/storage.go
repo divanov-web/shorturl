@@ -45,19 +45,20 @@ func (s *Storage) ensureTable(ctx context.Context) error {
 			id SERIAL PRIMARY KEY,
 			short_url TEXT UNIQUE NOT NULL,
 			original_url TEXT UNIQUE NOT NULL,
+			user_guid TEXT NOT NULL,
 			correlation_id TEXT
 		);
 	`)
 	return err
 }
 
-func (s *Storage) SaveURL(original string) (string, error) {
+func (s *Storage) SaveURL(userID string, original string) (string, error) {
 	ctx := context.Background()
 	shortURL := idgen.Generate(8)
 
 	_, err := s.pool.Exec(ctx,
-		`INSERT INTO short_urls (short_url, original_url) VALUES ($1, $2)`,
-		shortURL, original,
+		`INSERT INTO short_urls (short_url, original_url, user_guid) VALUES ($1, $2, $3)`,
+		shortURL, original, userID,
 	)
 	if err == nil {
 		return shortURL, nil
@@ -103,7 +104,7 @@ func (s *Storage) Close() {
 }
 
 // BatchSave сохраняет парные значения id+url в рамках одной транзакции
-func (s *Storage) BatchSave(entries []storage.BatchEntry) error {
+func (s *Storage) BatchSave(userID string, entries []storage.BatchEntry) error {
 	ctx := context.Background()
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -113,10 +114,10 @@ func (s *Storage) BatchSave(entries []storage.BatchEntry) error {
 
 	for _, e := range entries {
 		_, err := tx.Exec(ctx, `
-			INSERT INTO short_urls (short_url, original_url, correlation_id)
-			VALUES ($1, $2, $3)
+			INSERT INTO short_urls (short_url, original_url, correlation_id, user_guid)
+			VALUES ($1, $2, $3, $4)
 			ON CONFLICT (short_url) DO NOTHING
-		`, e.ShortURL, e.OriginalURL, e.CorrelationID)
+		`, e.ShortURL, e.OriginalURL, e.CorrelationID, userID)
 		if err != nil {
 			return err
 		}

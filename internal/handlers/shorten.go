@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
+	"github.com/divanov-web/shorturl/internal/middleware"
 	"github.com/divanov-web/shorturl/internal/service"
 	"github.com/go-chi/chi/v5"
 	"net/http"
@@ -24,7 +25,13 @@ func (h *Handler) SetShortURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	shortURL, err := h.Service.CreateShort(originalURL)
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		http.Error(w, "Ошибка определения userID из кук", http.StatusBadRequest)
+		return
+	}
+
+	shortURL, err := h.Service.CreateShort(userID, originalURL)
 	if errors.Is(err, service.ErrAlreadyExists) {
 		result := DataResponse{Result: shortURL}
 		w.Header().Set("Content-Type", "application/json")
@@ -79,7 +86,13 @@ func (h *Handler) SetShortenBatch(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	results, err := h.Service.CreateShortBatch(batch)
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		http.Error(w, "Ошибка определения userID из кук", http.StatusBadRequest)
+		return
+	}
+
+	results, err := h.Service.CreateShortBatch(userID, batch)
 	if err != nil {
 		http.Error(w, "Ошибка при сохранении ссылок", http.StatusInternalServerError)
 		return

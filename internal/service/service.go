@@ -33,13 +33,13 @@ func NewURLService(baseURL string, repo storage.Storage) *URLService {
 	}
 }
 
-func (s *URLService) CreateShort(original string) (string, error) {
+func (s *URLService) CreateShort(userID string, original string) (string, error) {
 	original = strings.TrimSpace(original)
 	if original == "" {
 		return "", fmt.Errorf("empty original URL")
 	}
 
-	id, err := s.Repo.SaveURL(original)
+	id, err := s.Repo.SaveURL(userID, original)
 	if errors.Is(err, storage.ErrConflict) {
 		return fmt.Sprintf("%s/%s", s.BaseURL, id), ErrAlreadyExists
 	}
@@ -47,7 +47,7 @@ func (s *URLService) CreateShort(original string) (string, error) {
 	return fmt.Sprintf("%s/%s", s.BaseURL, id), err
 }
 
-func (s *URLService) CreateShortBatch(input []BatchRequestItem) ([]ShortenBatchResult, error) {
+func (s *URLService) CreateShortBatch(userID string, input []BatchRequestItem) ([]ShortenBatchResult, error) {
 	entries := make([]storage.BatchEntry, 0, len(input))
 	results := make([]ShortenBatchResult, 0, len(input))
 
@@ -64,7 +64,7 @@ func (s *URLService) CreateShortBatch(input []BatchRequestItem) ([]ShortenBatchR
 		})
 	}
 
-	if err := s.Repo.BatchSave(entries); err != nil {
+	if err := s.Repo.BatchSave(userID, entries); err != nil {
 		return nil, err
 	}
 
