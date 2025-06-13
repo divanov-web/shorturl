@@ -55,11 +55,12 @@ func main() {
 	auth := middleware.NewAuth(cfg.AuthSecret) //авторизация
 	r.Use(auth.WithAuth)
 
-	r.Post("/", h.MainPage)
-	r.Post("/api/shorten", h.SetShortURL)
-	r.Get("/{id}", h.GetRealURL)
-	r.Get("/ping", h.PingDB)
-	r.Post("/api/shorten/batch", h.SetShortenBatch)
+	r.Post("/", h.MainPage)                         //Сохранение url с request текстовых параметров
+	r.Post("/api/shorten", h.SetShortURL)           //Сохранение url с request json параметров
+	r.Get("/{id}", h.GetRealURL)                    //Вернуть исходных url по его хешу и сделать редирект
+	r.Get("/ping", h.PingDB)                        // пингует БД постгресс
+	r.Post("/api/shorten/batch", h.SetShortenBatch) //Сохранение пачки url
+	r.Get("/api/user/urls", h.GetUserURLs)          //Получить все url пользователя
 
 	sugar.Infow(
 		"Starting server",

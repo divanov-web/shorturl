@@ -63,3 +63,9 @@ func (s *Storage) BatchSave(userID string, entries []storage.BatchEntry) error {
 
 	return nil
 }
+
+// GetUserURLs - заглушка, отправляем пустой список
+func (s *Storage) GetUserURLs(userID string) ([]storage.UserURL, error) {
+	var result []storage.UserURL
+	return result, nil
+}

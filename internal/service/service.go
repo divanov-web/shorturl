@@ -81,3 +81,7 @@ func (s *URLService) Ping() error {
 	}
 	return nil
 }
+
+func (s *URLService) GetUserURLs(userID string) ([]storage.UserURL, error) {
+	return s.Repo.GetUserURLs(userID)
+}

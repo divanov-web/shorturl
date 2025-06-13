@@ -125,3 +125,28 @@ func (s *Storage) BatchSave(userID string, entries []storage.BatchEntry) error {
 
 	return tx.Commit(ctx)
 }
+
+func (s *Storage) GetUserURLs(userID string) ([]storage.UserURL, error) {
+	ctx := context.Background()
+
+	rows, err := s.pool.Query(ctx, `
+		SELECT short_url, original_url
+		FROM short_urls
+		WHERE user_guid = $1
+	`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []storage.UserURL
+	for rows.Next() {
+		var item storage.UserURL
+		if err := rows.Scan(&item.ShortURL, &item.OriginalURL); err != nil {
+			return nil, err
+		}
+		result = append(result, item)
+	}
+
+	return result, nil
+}

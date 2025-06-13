@@ -105,3 +105,35 @@ func (h *Handler) SetShortenBatch(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Ошибка сериализации ответа", http.StatusInternalServerError)
 	}
 }
+
+// GetUserURLs хэндлер Get запрос на получение списка url текущего юзера
+func (h *Handler) GetUserURLs(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok || userID == "" {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	urls, err := h.Service.GetUserURLs(userID)
+	if err != nil {
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	if len(urls) == 0 {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	response := make([]UserURLItem, 0, len(urls))
+	for _, item := range urls {
+		response = append(response, UserURLItem{
+			ShortURL:    h.Service.BaseURL + "/" + item.ShortURL,
+			OriginalURL: item.OriginalURL,
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(response)
+}

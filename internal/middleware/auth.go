@@ -15,7 +15,7 @@ const (
 
 type contextKey string
 
-const userIDKey contextKey = "user_id"
+const UserIDKey contextKey = "user_id"
 
 type Auth struct {
 	Secret string
@@ -61,13 +61,13 @@ func (a *Auth) WithAuth(next http.Handler) http.Handler {
 			}
 		}
 
-		ctx := context.WithValue(r.Context(), userIDKey, userID)
+		ctx := context.WithValue(r.Context(), UserIDKey, userID)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 
 // GetUserID извлекает user_id из context
 func GetUserID(ctx context.Context) (string, bool) {
-	userID, ok := ctx.Value(userIDKey).(string)
+	userID, ok := ctx.Value(UserIDKey).(string)
 	return userID, ok
 }
