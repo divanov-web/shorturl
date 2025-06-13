@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
+	"github.com/divanov-web/shorturl/internal/middleware"
 	"github.com/divanov-web/shorturl/internal/service"
 	"github.com/go-chi/chi/v5"
 	"net/http"
@@ -24,7 +25,13 @@ func (h *Handler) SetShortURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	shortURL, err := h.Service.CreateShort(originalURL)
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		http.Error(w, "Ошибка определения userID из кук", http.StatusBadRequest)
+		return
+	}
+
+	shortURL, err := h.Service.CreateShort(userID, originalURL)
 	if errors.Is(err, service.ErrAlreadyExists) {
 		result := DataResponse{Result: shortURL}
 		w.Header().Set("Content-Type", "application/json")
@@ -79,7 +86,13 @@ func (h *Handler) SetShortenBatch(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	results, err := h.Service.CreateShortBatch(batch)
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		http.Error(w, "Ошибка определения userID из кук", http.StatusBadRequest)
+		return
+	}
+
+	results, err := h.Service.CreateShortBatch(userID, batch)
 	if err != nil {
 		http.Error(w, "Ошибка при сохранении ссылок", http.StatusInternalServerError)
 		return
@@ -91,4 +104,36 @@ func (h *Handler) SetShortenBatch(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(results); err != nil {
 		http.Error(w, "Ошибка сериализации ответа", http.StatusInternalServerError)
 	}
+}
+
+// GetUserURLs хэндлер Get запрос на получение списка url текущего юзера
+func (h *Handler) GetUserURLs(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok || userID == "" {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	urls, err := h.Service.GetUserURLs(userID)
+	if err != nil {
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	if len(urls) == 0 {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	response := make([]UserURLItem, 0, len(urls))
+	for _, item := range urls {
+		response = append(response, UserURLItem{
+			ShortURL:    h.Service.BaseURL + "/" + item.ShortURL,
+			OriginalURL: item.OriginalURL,
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(response)
 }

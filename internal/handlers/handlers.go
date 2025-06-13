@@ -24,6 +24,11 @@ type DataResponse struct {
 	Result string `json:"result"`
 }
 
+type UserURLItem struct {
+	ShortURL    string `json:"short_url"`
+	OriginalURL string `json:"original_url"`
+}
+
 func NewHandler(svc *service.URLService) *Handler {
 	return &Handler{Service: svc}
 }
