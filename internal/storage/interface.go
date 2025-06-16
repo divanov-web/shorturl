@@ -11,6 +11,7 @@ type BatchEntry struct {
 type UserURL struct {
 	ShortURL    string
 	OriginalURL string
+	DeletedFlag bool
 }
 
 type Storage interface {
@@ -19,6 +20,8 @@ type Storage interface {
 	Ping() error
 	BatchSave(userID string, entries []BatchEntry) error
 	GetUserURLs(userID string) ([]UserURL, error)
+	MarkAsDeleted(userID string, ids []string) error
 }
 
 var ErrConflict = errors.New("url already exists (storage)")
+var ErrNotImplemented = errors.New("MarkAsDeleted not implemented in memory storage")

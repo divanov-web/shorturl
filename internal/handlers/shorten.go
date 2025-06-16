@@ -58,7 +58,7 @@ func (h *Handler) GetRealURL(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	realURL, ok := h.Service.ResolveShort(id)
 	if !ok {
-		w.WriteHeader(http.StatusBadRequest)
+		w.WriteHeader(http.StatusGone)
 		return
 	}
 	http.Redirect(w, r, realURL, http.StatusTemporaryRedirect)
@@ -136,4 +136,29 @@ func (h *Handler) GetUserURLs(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(response)
+}
+
+// DeleteUserUrl хендлер удаления url пользователя. json: ["6qxTVvsy", "RTfd56hn", "Jlfd67ds"]
+func (h *Handler) DeleteUserUrl(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok || userID == "" {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var ids []string
+	if err := json.NewDecoder(r.Body).Decode(&ids); err != nil {
+		http.Error(w, "Невозможно распарсить JSON", http.StatusBadRequest)
+		return
+	}
+
+	if len(ids) == 0 {
+		http.Error(w, "Список идентификаторов пуст", http.StatusBadRequest)
+		return
+	}
+
+	// Отправляем задачу на асинхронное удаление
+	h.Service.DeleteShortURLsAsync(userID, ids)
+
+	w.WriteHeader(http.StatusAccepted) // 202 — принято к выполнению
 }

@@ -136,3 +136,7 @@ func (s *Storage) GetUserURLs(userID string) ([]storage.UserURL, error) {
 	var result []storage.UserURL
 	return result, nil
 }
+
+func (s *Storage) MarkAsDeleted(userID string, ids []string) error {
+	return storage.ErrNotImplemented
+}

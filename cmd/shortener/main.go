@@ -43,7 +43,7 @@ func main() {
 		sugar.Fatalw("failed to initialize storage", "error", err)
 	}
 
-	urlService := service.NewURLService(cfg.BaseURL, store)
+	urlService := service.NewURLService(ctx, cfg.BaseURL, store)
 	h := handlers.NewHandler(urlService)
 
 	r := chi.NewRouter()
@@ -61,6 +61,7 @@ func main() {
 	r.Get("/ping", h.PingDB)                        // пингует БД постгресс
 	r.Post("/api/shorten/batch", h.SetShortenBatch) //Сохранение пачки url
 	r.Get("/api/user/urls", h.GetUserURLs)          //Получить все url пользователя
+	r.Delete("/api/user/urls", h.DeleteUserUrl)     //Удалить url пользователя по массиву id
 
 	sugar.Infow(
 		"Starting server",

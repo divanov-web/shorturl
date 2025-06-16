@@ -46,7 +46,8 @@ func (s *Storage) ensureTable(ctx context.Context) error {
 			short_url TEXT UNIQUE NOT NULL,
 			original_url TEXT UNIQUE NOT NULL,
 			user_guid TEXT NOT NULL,
-			correlation_id TEXT
+			correlation_id TEXT,
+			is_deleted BOOLEAN NOT NULL DEFAULT FALSE
 		);
 	`)
 	return err
@@ -83,7 +84,11 @@ func (s *Storage) SaveURL(userID string, original string) (string, error) {
 func (s *Storage) GetURL(id string) (string, bool) {
 	ctx := context.Background()
 	var url string
-	err := s.pool.QueryRow(ctx, `SELECT original_url FROM short_urls WHERE short_url = $1`, id).Scan(&url)
+	err := s.pool.QueryRow(ctx, `
+		SELECT original_url 
+		FROM short_urls 
+		WHERE short_url = $1 AND is_deleted = FALSE
+	`, id).Scan(&url)
 	if err != nil {
 		return "", false
 	}
@@ -132,7 +137,7 @@ func (s *Storage) GetUserURLs(userID string) ([]storage.UserURL, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT short_url, original_url
 		FROM short_urls
-		WHERE user_guid = $1
+		WHERE user_guid = $1 AND is_deleted = FALSE
 	`, userID)
 	if err != nil {
 		return nil, err
@@ -149,4 +154,26 @@ func (s *Storage) GetUserURLs(userID string) ([]storage.UserURL, error) {
 	}
 
 	return result, nil
+}
+
+func (s *Storage) MarkAsDeleted(userID string, ids []string) error {
+	ctx := context.Background()
+
+	if len(ids) == 0 {
+		return nil
+	}
+
+	// Преобразуем []string в интерфейсный срез для передачи как $2
+	rows := make([]interface{}, len(ids))
+	for i, v := range ids {
+		rows[i] = v
+	}
+
+	_, err := s.pool.Exec(ctx, `
+		UPDATE short_urls
+		SET is_deleted = TRUE
+		WHERE user_guid = $1 AND short_url = ANY($2)
+	`, userID, ids)
+
+	return err
 }

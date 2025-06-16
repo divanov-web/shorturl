@@ -117,7 +117,7 @@ func TestHandleGet(t *testing.T) {
 			path:   "/doesnotexist",
 			setup:  func(s *filestorage.Storage) {},
 			want: want{
-				statusCode: http.StatusBadRequest,
+				statusCode: http.StatusGone,
 			},
 		},
 	}

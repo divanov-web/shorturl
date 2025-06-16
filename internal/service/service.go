@@ -1,12 +1,13 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
-	"strings"
-
 	"github.com/divanov-web/shorturl/internal/storage"
 	"github.com/divanov-web/shorturl/internal/utils/idgen"
+	"strings"
+	"time"
 )
 
 type BatchRequestItem struct {
@@ -19,18 +20,28 @@ type ShortenBatchResult struct {
 	ShortURL      string `json:"short_url"`
 }
 
+type deleteTask struct {
+	UserID string
+	IDs    []string
+}
+
 type URLService struct {
-	BaseURL string
-	Repo    storage.Storage
+	BaseURL    string
+	Repo       storage.Storage
+	deleteChan chan deleteTask
 }
 
 var ErrAlreadyExists = errors.New("url already exists (service)")
 
-func NewURLService(baseURL string, repo storage.Storage) *URLService {
-	return &URLService{
-		BaseURL: baseURL,
-		Repo:    repo,
+func NewURLService(ctx context.Context, baseURL string, repo storage.Storage) *URLService {
+	svc := &URLService{
+		BaseURL:    baseURL,
+		Repo:       repo,
+		deleteChan: make(chan deleteTask, 5),
 	}
+
+	go svc.startDeleteWorker(ctx)
+	return svc
 }
 
 func (s *URLService) CreateShort(userID string, original string) (string, error) {
@@ -84,4 +95,56 @@ func (s *URLService) Ping() error {
 
 func (s *URLService) GetUserURLs(userID string) ([]storage.UserURL, error) {
 	return s.Repo.GetUserURLs(userID)
+}
+
+func (s *URLService) DeleteUserURLs(userID string, ids []string) error {
+	return s.Repo.MarkAsDeleted(userID, ids)
+}
+
+func (s *URLService) startDeleteWorker(ctx context.Context) {
+	const maxBatchSize = 100
+
+	buffer := make(map[string][]string)
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case task, ok := <-s.deleteChan:
+			if !ok {
+				// Канал закрыт — flush и выход
+				s.flushBuffer(buffer)
+				return
+			}
+			buffer[task.UserID] = append(buffer[task.UserID], task.IDs...)
+			if len(buffer[task.UserID]) >= maxBatchSize {
+				_ = s.Repo.MarkAsDeleted(task.UserID, buffer[task.UserID])
+				buffer[task.UserID] = buffer[task.UserID][:0]
+			}
+		case <-ticker.C:
+			// периодический сброс буфера
+			s.flushBuffer(buffer)
+		case <-ctx.Done():
+			// Завершение через context — тоже flush
+			s.flushBuffer(buffer)
+			return
+		}
+	}
+}
+
+// flushBuffer - сейчас перед удалением накапливается буфер из задач на удаление.
+// Если буфер не накопился, его нужно сбрасывать вручную
+func (s *URLService) flushBuffer(buffer map[string][]string) {
+	for userID, ids := range buffer {
+		if len(ids) > 0 {
+			_ = s.Repo.MarkAsDeleted(userID, ids)
+		}
+	}
+}
+
+func (s *URLService) DeleteShortURLsAsync(userID string, ids []string) {
+	s.deleteChan <- deleteTask{
+		UserID: userID,
+		IDs:    ids,
+	}
 }
