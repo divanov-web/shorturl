@@ -138,8 +138,8 @@ func (h *Handler) GetUserURLs(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(response)
 }
 
-// DeleteUserUrl хендлер удаления url пользователя. json: ["6qxTVvsy", "RTfd56hn", "Jlfd67ds"]
-func (h *Handler) DeleteUserUrl(w http.ResponseWriter, r *http.Request) {
+// DeleteUserURL хендлер удаления url пользователя. json: ["6qxTVvsy", "RTfd56hn", "Jlfd67ds"]
+func (h *Handler) DeleteUserURL(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok || userID == "" {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)

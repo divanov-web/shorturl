@@ -61,7 +61,7 @@ func main() {
 	r.Get("/ping", h.PingDB)                        // пингует БД постгресс
 	r.Post("/api/shorten/batch", h.SetShortenBatch) //Сохранение пачки url
 	r.Get("/api/user/urls", h.GetUserURLs)          //Получить все url пользователя
-	r.Delete("/api/user/urls", h.DeleteUserUrl)     //Удалить url пользователя по массиву id
+	r.Delete("/api/user/urls", h.DeleteUserURL)     //Удалить url пользователя по массиву id
 
 	sugar.Infow(
 		"Starting server",
