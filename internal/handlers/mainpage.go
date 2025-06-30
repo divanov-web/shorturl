@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"github.com/divanov-web/shorturl/internal/middleware"
 	"github.com/divanov-web/shorturl/internal/service"
 	"io"
 	"net/http"
@@ -34,7 +35,13 @@ func (h *Handler) MainPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	shortURL, err := h.Service.CreateShort(originalURL)
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		http.Error(w, "Ошибка определения userID из кук", http.StatusBadRequest)
+		return
+	}
+
+	shortURL, err := h.Service.CreateShort(userID, originalURL)
 	if errors.Is(err, service.ErrAlreadyExists) {
 		w.Header().Set("Content-Type", "text/plain")
 		w.WriteHeader(http.StatusConflict) // 409

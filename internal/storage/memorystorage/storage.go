@@ -17,7 +17,7 @@ func NewStorage() (*Storage, error) {
 	}, nil
 }
 
-func (s *Storage) SaveURL(original string) (string, error) {
+func (s *Storage) SaveURL(userID string, original string) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -50,7 +50,7 @@ func NewTestStorage() *Storage {
 	}
 }
 
-func (s *Storage) BatchSave(entries []storage.BatchEntry) error {
+func (s *Storage) BatchSave(userID string, entries []storage.BatchEntry) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -62,4 +62,14 @@ func (s *Storage) BatchSave(entries []storage.BatchEntry) error {
 	}
 
 	return nil
+}
+
+// GetUserURLs - заглушка, отправляем пустой список
+func (s *Storage) GetUserURLs(userID string) ([]storage.UserURL, error) {
+	var result []storage.UserURL
+	return result, nil
+}
+
+func (s *Storage) MarkAsDeleted(userID string, ids []string) error {
+	return storage.ErrNotImplemented
 }

@@ -2,22 +2,27 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"github.com/divanov-web/shorturl/internal/config"
 	"github.com/divanov-web/shorturl/internal/middleware"
 	"github.com/divanov-web/shorturl/internal/service"
 	"github.com/divanov-web/shorturl/internal/storage/filestorage"
 	"github.com/go-chi/chi/v5"
+	"github.com/golang-jwt/jwt/v5"
 	"go.uber.org/zap"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+const testAuthSecret = "my-secret-key"
 
 func TestHandlePost(t *testing.T) {
 	type want struct {
@@ -55,12 +60,13 @@ func TestHandlePost(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			store := filestorage.NewTestStorage()
-			svc := service.NewURLService("http://localhost:8080", store)
+			ctx := context.Background()
+			svc := service.NewURLService(ctx, "http://localhost:8080", store)
 			h := NewHandler(svc)
 
 			req := httptest.NewRequest(tt.method, "/", strings.NewReader(tt.body))
+			req = req.WithContext(context.WithValue(req.Context(), middleware.UserIDKey, "test-user-id")) // добавили userID
 			w := httptest.NewRecorder()
-
 			h.MainPage(w, req)
 
 			result := w.Result()
@@ -112,7 +118,7 @@ func TestHandleGet(t *testing.T) {
 			path:   "/doesnotexist",
 			setup:  func(s *filestorage.Storage) {},
 			want: want{
-				statusCode: http.StatusBadRequest,
+				statusCode: http.StatusGone,
 			},
 		},
 	}
@@ -121,7 +127,8 @@ func TestHandleGet(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			store := filestorage.NewTestStorage()
 			tt.setup(store)
-			svc := service.NewURLService("http://localhost:8080", store)
+			ctx := context.Background()
+			svc := service.NewURLService(ctx, "http://localhost:8080", store)
 			h := NewHandler(svc)
 
 			req := httptest.NewRequest(tt.method, tt.path, nil)
@@ -151,11 +158,14 @@ func TestSetShortURL(t *testing.T) {
 
 	cfg := config.NewConfig()
 	store := filestorage.NewTestStorage()
-	svc := service.NewURLService(cfg.BaseURL, store)
+	ctx := context.Background()
+	svc := service.NewURLService(ctx, cfg.BaseURL, store)
 	h := NewHandler(svc)
 
 	r := chi.NewRouter()
 	r.Use(middleware.WithLogging)
+	auth := middleware.NewAuth(cfg.AuthSecret) //авторизация
+	r.Use(auth.WithAuth)
 	r.Post("/api/shorten", h.SetShortURL)
 
 	requestBody, err := json.Marshal(map[string]string{"url": "https://practicum.yandex.ru"})
@@ -163,6 +173,13 @@ func TestSetShortURL(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/api/shorten", bytes.NewBuffer(requestBody))
 	req.Header.Set("Content-Type", "application/json")
+
+	// Добавляем auth_token
+	token := generateTestJWT("test-user-id")
+	req.AddCookie(&http.Cookie{
+		Name:  "auth_token",
+		Value: token,
+	})
 
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
@@ -177,4 +194,13 @@ func TestSetShortURL(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotEmpty(t, resp.Result)
 	assert.True(t, strings.HasPrefix(resp.Result, cfg.BaseURL+"/"))
+}
+
+func generateTestJWT(userID string) string {
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"user_id": userID,
+		"exp":     time.Now().Add(time.Hour * 24).Unix(),
+	})
+	signed, _ := token.SignedString([]byte(testAuthSecret))
+	return signed
 }

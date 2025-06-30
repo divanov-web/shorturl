@@ -43,20 +43,25 @@ func main() {
 		sugar.Fatalw("failed to initialize storage", "error", err)
 	}
 
-	urlService := service.NewURLService(cfg.BaseURL, store)
+	urlService := service.NewURLService(ctx, cfg.BaseURL, store)
 	h := handlers.NewHandler(urlService)
 
 	r := chi.NewRouter()
 
 	r.Use(middleware.WithDecompress)
-	r.Use(middleware.WithLogging)
-	r.Use(middleware.WithGzipBuffered)
+	r.Use(middleware.WithLogging)      //логирование
+	r.Use(middleware.WithGzipBuffered) //сжатие
 
-	r.Post("/", h.MainPage)
-	r.Post("/api/shorten", h.SetShortURL)
-	r.Get("/{id}", h.GetRealURL)
-	r.Get("/ping", h.PingDB)
-	r.Post("/api/shorten/batch", h.SetShortenBatch)
+	auth := middleware.NewAuth(cfg.AuthSecret) //авторизация
+	r.Use(auth.WithAuth)
+
+	r.Post("/", h.MainPage)                         //Сохранение url с request текстовых параметров
+	r.Post("/api/shorten", h.SetShortURL)           //Сохранение url с request json параметров
+	r.Get("/{id}", h.GetRealURL)                    //Вернуть исходных url по его хешу и сделать редирект
+	r.Get("/ping", h.PingDB)                        // пингует БД постгресс
+	r.Post("/api/shorten/batch", h.SetShortenBatch) //Сохранение пачки url
+	r.Get("/api/user/urls", h.GetUserURLs)          //Получить все url пользователя
+	r.Delete("/api/user/urls", h.DeleteUserURL)     //Удалить url пользователя по массиву id
 
 	sugar.Infow(
 		"Starting server",
