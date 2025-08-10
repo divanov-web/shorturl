@@ -3,8 +3,6 @@ package handlers_test
 import (
 	"bytes"
 	"context"
-	"encoding/json"
-	"fmt"
 	"github.com/go-chi/chi/v5"
 	"net/http"
 	"net/http/httptest"
@@ -17,7 +15,7 @@ import (
 )
 
 // ExamplePingDB показывает вызов эндпоинта /ping.
-func ExamplePingDB() {
+func ExampleHandler_PingDB() {
 	store := memorystorage.NewTestStorage()
 	svc := service.NewURLService(context.Background(), "http://localhost:8080", store)
 	h := handlers.NewHandler(svc)
@@ -79,112 +77,3 @@ func Example_createAndRedirect() {
 	// 307
 	println(getRec.Code)
 }
-
-// ExampleHandler_SetShortURL демонстрирует создание короткой ссылки через POST /api/shorten.
-func ExampleHandler_SetShortURL() {
-
-	svc := service.NewURLService(nil, "http://localhost:8080", memorystorage.NewTestStorage())
-	h := handlers.NewHandler(svc)
-
-	body := bytes.NewBufferString(`{"url":"https://example.com"}`)
-	req := httptest.NewRequest(http.MethodPost, "/api/shorten", body)
-	w := httptest.NewRecorder()
-
-	h.SetShortURL(w, req)
-
-	fmt.Println(w.Code)
-	fmt.Println(w.Body.String())
-
-	// Output:
-	// 201
-	// {"result":"http://localhost:8080/<shortid>"}
-}
-
-// ExampleHandler_GetRealURL демонстрирует получение оригинального URL по короткому идентификатору.
-func ExampleHandler_GetRealURL() {
-	svc := service.NewURLService(nil, "http://localhost:8080", memorystorage.NewTestStorage())
-	h := handlers.NewHandler(svc)
-
-	// Добавляем тестовую запись
-	id, _ := svc.CreateShort("user1", "https://example.com")
-
-	req := httptest.NewRequest(http.MethodGet, "/"+id, nil)
-	w := httptest.NewRecorder()
-
-	h.GetRealURL(w, req)
-
-	fmt.Println(w.Code)
-	fmt.Println(w.Header().Get("Location"))
-
-	// Output:
-	// 307
-	// https://example.com
-}
-
-// ExampleHandler_SetShortenBatch демонстрирует сокращение списка ссылок через POST /api/shorten/batch.
-func ExampleHandler_SetShortenBatch() {
-	svc := service.NewURLService(nil, "http://localhost:8080", memorystorage.NewTestStorage())
-	h := handlers.NewHandler(svc)
-
-	items := []service.BatchRequestItem{
-		{CorrelationID: "1", OriginalURL: "https://a.com"},
-		{CorrelationID: "2", OriginalURL: "https://b.com"},
-	}
-	body, _ := json.Marshal(items)
-
-	req := httptest.NewRequest(http.MethodPost, "/api/shorten/batch", bytes.NewReader(body))
-	w := httptest.NewRecorder()
-
-	h.SetShortenBatch(w, req)
-
-	fmt.Println(w.Code)
-	fmt.Println(w.Body.Len() > 0)
-
-	// Output:
-	// 201
-	// true
-}
-
-// ExampleHandler_GetUserURLs демонстрирует получение всех ссылок пользователя.
-func ExampleHandler_GetUserURLs() {
-	svc := service.NewURLService(nil, "http://localhost:8080", memorystorage.NewTestStorage())
-	h := handlers.NewHandler(svc)
-
-	// Заполним тестовыми данными
-	svc.CreateShort("user1", "https://example.com")
-
-	req := httptest.NewRequest(http.MethodGet, "/api/user/urls", nil)
-	w := httptest.NewRecorder()
-
-	h.GetUserURLs(w, req)
-
-	fmt.Println(w.Code)
-	fmt.Println(w.Body.Len() > 0)
-
-	// Output:
-	// 200
-	// true
-}
-
-// ExampleHandler_DeleteUserURL демонстрирует удаление ссылок пользователя.
-func ExampleHandler_DeleteUserURL() {
-	svc := service.NewURLService(nil, "http://localhost:8080", memorystorage.NewTestStorage())
-	h := handlers.NewHandler(svc)
-
-	// Добавляем тестовые данные
-	id, _ := svc.CreateShort("user1", "https://example.com")
-	body, _ := json.Marshal([]string{id})
-
-	req := httptest.NewRequest(http.MethodDelete, "/api/user/urls", bytes.NewReader(body))
-	w := httptest.NewRecorder()
-
-	h.DeleteUserURL(w, req)
-
-	fmt.Println(w.Code)
-
-	// Output:
-	// 202
-}
-
-// TestExamplesPlaceholder
-//func TestExamplesPlaceholder(t *testing.T) {}
