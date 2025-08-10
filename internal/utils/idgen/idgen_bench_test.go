@@ -1,8 +1,9 @@
 package idgen_test
 
 import (
-	"github.com/divanov-web/shorturl/internal/utils/idgen"
 	"testing"
+
+	"github.com/divanov-web/shorturl/internal/utils/idgen"
 )
 
 // Базовый бенч на фиксированную длину.

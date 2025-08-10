@@ -2,6 +2,10 @@ package main
 
 import (
 	"context"
+	"log"
+	"net/http"
+	_ "net/http/pprof" // подключаем пакет pprof
+
 	"github.com/divanov-web/shorturl/internal/config"
 	"github.com/divanov-web/shorturl/internal/handlers"
 	"github.com/divanov-web/shorturl/internal/middleware"
@@ -12,9 +16,6 @@ import (
 	"github.com/divanov-web/shorturl/internal/storage/pgstorage"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
-	"log"
-	"net/http"
-	_ "net/http/pprof" // подключаем пакет pprof
 )
 
 func main() {

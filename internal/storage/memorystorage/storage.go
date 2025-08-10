@@ -1,9 +1,10 @@
 package memorystorage
 
 import (
+	"sync"
+
 	"github.com/divanov-web/shorturl/internal/storage"
 	"github.com/divanov-web/shorturl/internal/utils/idgen"
-	"sync"
 )
 
 type Storage struct {

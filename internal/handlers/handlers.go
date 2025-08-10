@@ -1,9 +1,10 @@
 package handlers
 
 import (
-	"github.com/divanov-web/shorturl/internal/service"
 	"net/http"
 	"net/url"
+
+	"github.com/divanov-web/shorturl/internal/service"
 )
 
 type Handler struct {

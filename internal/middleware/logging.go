@@ -1,9 +1,10 @@
 package middleware
 
 import (
-	"go.uber.org/zap"
 	"net/http"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 var sugar *zap.SugaredLogger

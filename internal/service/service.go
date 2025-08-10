@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/divanov-web/shorturl/internal/storage"
-	"github.com/divanov-web/shorturl/internal/utils/idgen"
 	"strings"
 	"time"
+
+	"github.com/divanov-web/shorturl/internal/storage"
+	"github.com/divanov-web/shorturl/internal/utils/idgen"
 )
 
 type BatchRequestItem struct {

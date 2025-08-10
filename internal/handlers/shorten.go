@@ -3,11 +3,12 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
+	"net/http"
+	"strings"
+
 	"github.com/divanov-web/shorturl/internal/middleware"
 	"github.com/divanov-web/shorturl/internal/service"
 	"github.com/go-chi/chi/v5"
-	"net/http"
-	"strings"
 )
 
 func (h *Handler) SetShortURL(w http.ResponseWriter, r *http.Request) {

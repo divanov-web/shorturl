@@ -4,11 +4,12 @@ import (
 	"bufio"
 	"encoding/json"
 	"errors"
-	"github.com/divanov-web/shorturl/internal/storage"
-	"github.com/divanov-web/shorturl/internal/utils/idgen"
 	"os"
 	"sync"
 	"time"
+
+	"github.com/divanov-web/shorturl/internal/storage"
+	"github.com/divanov-web/shorturl/internal/utils/idgen"
 )
 
 type Item struct {

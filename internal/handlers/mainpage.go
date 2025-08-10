@@ -3,11 +3,12 @@ package handlers
 import (
 	"bytes"
 	"errors"
-	"github.com/divanov-web/shorturl/internal/middleware"
-	"github.com/divanov-web/shorturl/internal/service"
 	"io"
 	"net/http"
 	"strings"
+
+	"github.com/divanov-web/shorturl/internal/middleware"
+	"github.com/divanov-web/shorturl/internal/service"
 )
 
 // MainPage POST запрос на отправку большой ссылки и возвращение короткой ссылки в виде хеша
