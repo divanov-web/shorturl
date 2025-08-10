@@ -12,11 +12,13 @@ import (
 	"github.com/divanov-web/shorturl/internal/utils/idgen"
 )
 
+// BatchRequestItem описывает входные данные для пакетного создания коротких ссылок.
 type BatchRequestItem struct {
 	CorrelationID string `json:"correlation_id"`
 	OriginalURL   string `json:"original_url"`
 }
 
+// ShortenBatchResult описывает результат пакетного сокращения ссылок.
 type ShortenBatchResult struct {
 	CorrelationID string `json:"correlation_id"`
 	ShortURL      string `json:"short_url"`
@@ -27,6 +29,7 @@ type deleteTask struct {
 	IDs    []string
 }
 
+// URLService описывает бизнес-логику сервиса коротких ссылок.
 type URLService struct {
 	BaseURL    string
 	Repo       storage.Storage
@@ -35,6 +38,7 @@ type URLService struct {
 
 var ErrAlreadyExists = errors.New("url already exists (service)")
 
+// NewURLService создаёт новый сервис для работы с короткими ссылками и запускает воркер удаления.
 func NewURLService(ctx context.Context, baseURL string, repo storage.Storage) *URLService {
 	svc := &URLService{
 		BaseURL:    baseURL,
@@ -46,6 +50,7 @@ func NewURLService(ctx context.Context, baseURL string, repo storage.Storage) *U
 	return svc
 }
 
+// CreateShort создаёт короткую ссылку для переданного оригинального URL.
 func (s *URLService) CreateShort(userID string, original string) (string, error) {
 	original = strings.TrimSpace(original)
 	if original == "" {
@@ -60,6 +65,7 @@ func (s *URLService) CreateShort(userID string, original string) (string, error)
 	return fmt.Sprintf("%s/%s", s.BaseURL, id), err
 }
 
+// CreateShortBatch создаёт несколько коротких ссылок за один запрос.
 func (s *URLService) CreateShortBatch(userID string, input []BatchRequestItem) ([]ShortenBatchResult, error) {
 	entries := make([]storage.BatchEntry, 0, len(input))
 	results := make([]ShortenBatchResult, 0, len(input))
@@ -84,10 +90,12 @@ func (s *URLService) CreateShortBatch(userID string, input []BatchRequestItem) (
 	return results, nil
 }
 
+// ResolveShort возвращает оригинальный URL по идентификатору короткой ссылки.
 func (s *URLService) ResolveShort(id string) (string, bool) {
 	return s.Repo.GetURL(id)
 }
 
+// Ping проверяет доступность хранилища, если оно поддерживает метод Ping.
 func (s *URLService) Ping() error {
 	if pinger, ok := s.Repo.(interface{ Ping() error }); ok {
 		return pinger.Ping()
@@ -95,14 +103,17 @@ func (s *URLService) Ping() error {
 	return nil
 }
 
+// GetUserURLs возвращает список коротких ссылок пользователя.
 func (s *URLService) GetUserURLs(userID string) ([]storage.UserURL, error) {
 	return s.Repo.GetUserURLs(userID)
 }
 
+// DeleteUserURLs помечает ссылки пользователя как удалённые.
 func (s *URLService) DeleteUserURLs(userID string, ids []string) error {
 	return s.Repo.MarkAsDeleted(userID, ids)
 }
 
+// startDeleteWorker запускает фоновую обработку задач на удаление ссылок.
 func (s *URLService) startDeleteWorker(ctx context.Context) {
 	const maxBatchSize = 100
 
@@ -144,6 +155,7 @@ func (s *URLService) flushBuffer(buffer map[string][]string) {
 	}
 }
 
+// DeleteShortURLsAsync добавляет задачу на асинхронное удаление ссылок.
 func (s *URLService) DeleteShortURLsAsync(userID string, ids []string) {
 	s.deleteChan <- deleteTask{
 		UserID: userID,

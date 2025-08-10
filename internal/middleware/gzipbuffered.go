@@ -23,10 +23,12 @@ func newBufferedResponseWriter(w http.ResponseWriter) *bufferedResponseWriter {
 	}
 }
 
+// Header возвращает буферизованные заголовки ответа
 func (b *bufferedResponseWriter) Header() http.Header {
 	return b.header
 }
 
+// WriteHeader сохраняет код статуса в буфере, но не отправляет его сразу клиенту.
 func (b *bufferedResponseWriter) WriteHeader(statusCode int) {
 	if !b.wroteHeader {
 		b.status = statusCode
@@ -34,6 +36,7 @@ func (b *bufferedResponseWriter) WriteHeader(statusCode int) {
 	}
 }
 
+// Write записывает данные в буфер тела ответа.
 func (b *bufferedResponseWriter) Write(data []byte) (int, error) {
 	return b.body.Write(data)
 }

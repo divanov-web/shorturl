@@ -12,7 +12,9 @@ type gzipWriter struct {
 	Writer io.Writer
 }
 
+// Write пример записи через gzip
 func (w gzipWriter) Write(b []byte) (int, error) {
+
 	return w.Writer.Write(b)
 }
 

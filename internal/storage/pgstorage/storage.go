@@ -12,10 +12,12 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// Storage описывает сам Storage хранения в БД.
 type Storage struct {
 	pool *pgxpool.Pool
 }
 
+// NewPool создаёт новое подключение к пулу PostgreSQL по переданному DSN.
 func NewPool(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
 	cfg, err := pgxpool.ParseConfig(dsn)
 	if err != nil {
@@ -28,6 +30,7 @@ func NewPool(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
+// NewStorage создаёт хранилище в PostgreSQL и гарантирует наличие таблицы.
 func NewStorage(ctx context.Context, pool *pgxpool.Pool) (*Storage, error) {
 	storage := &Storage{
 		pool: pool,
@@ -54,6 +57,9 @@ func (s *Storage) ensureTable(ctx context.Context) error {
 	return err
 }
 
+// SaveURL сохраняет оригинальный URL и возвращает его короткий идентификатор.
+// При повторной вставке того же URL возвращает существующий short_url и ErrConflict.
+// Используется ON CONFLICT только для инкремента с оптимизацией производительности.
 func (s *Storage) SaveURL(userID string, original string) (string, error) {
 	ctx := context.Background()
 
@@ -94,6 +100,7 @@ func (s *Storage) SaveURL(userID string, original string) (string, error) {
 	return "", fmt.Errorf("save failed: short id collision after %d retries", maxRetries)
 }
 
+// GetURL возвращает оригинальный URL по его короткому идентификатору.
 func (s *Storage) GetURL(id string) (string, bool) {
 	ctx := context.Background()
 	var url string
@@ -108,20 +115,24 @@ func (s *Storage) GetURL(id string) (string, bool) {
 	return url, true
 }
 
+// ForceSet добавляет или обновляет запись с указанным идентификатором и URL.
+// Используется в тестах.
 func (s *Storage) ForceSet(shortURL, url string) {
 	ctx := context.Background()
 	_, _ = s.pool.Exec(ctx, `INSERT INTO short_urls (short_url, original_url) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING`, shortURL, url)
 }
 
+// Ping проверяет доступность хранилища (заглушка).
 func (s *Storage) Ping() error {
 	return s.pool.Ping(context.Background())
 }
 
+// Close закрывает пул соединений с базой данных.
 func (s *Storage) Close() {
 	s.pool.Close()
 }
 
-// BatchSave сохраняет парные значения id+url в рамках одной транзакции
+// BatchSave сохраняет парные значения id+url в рамках одной транзакции.
 func (s *Storage) BatchSave(userID string, entries []storage.BatchEntry) error {
 	ctx := context.Background()
 	tx, err := s.pool.Begin(ctx)
@@ -144,6 +155,7 @@ func (s *Storage) BatchSave(userID string, entries []storage.BatchEntry) error {
 	return tx.Commit(ctx)
 }
 
+// GetUserURLs возвращает все ссылки пользователя, которые не помечены удалёнными.
 func (s *Storage) GetUserURLs(userID string) ([]storage.UserURL, error) {
 	ctx := context.Background()
 
@@ -169,6 +181,7 @@ func (s *Storage) GetUserURLs(userID string) ([]storage.UserURL, error) {
 	return result, nil
 }
 
+// MarkAsDeleted помечает указанные короткие ссылки пользователя как удалённые.
 func (s *Storage) MarkAsDeleted(userID string, ids []string) error {
 	ctx := context.Background()
 

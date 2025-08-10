@@ -7,17 +7,20 @@ import (
 	"github.com/divanov-web/shorturl/internal/utils/idgen"
 )
 
+// Storage описывает хранение в оперативной памяти.
 type Storage struct {
 	data map[string]string
 	mu   sync.RWMutex
 }
 
+// NewStorage создаёт новое хранилище в оперативной памяти.
 func NewStorage() (*Storage, error) {
 	return &Storage{
 		data: make(map[string]string),
 	}, nil
 }
 
+// SaveURL сохраняет оригинальный URL и возвращает его короткий идентификатор.
 func (s *Storage) SaveURL(userID string, original string) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -28,6 +31,7 @@ func (s *Storage) SaveURL(userID string, original string) (string, error) {
 	return id, nil
 }
 
+// GetURL возвращает оригинальный URL по его короткому идентификатору.
 func (s *Storage) GetURL(id string) (string, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -35,22 +39,28 @@ func (s *Storage) GetURL(id string) (string, bool) {
 	return url, ok
 }
 
+// ForceSet добавляет или обновляет запись с указанным идентификатором и URL.
+// Используется в тестах.
 func (s *Storage) ForceSet(id, url string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.data[id] = url
 }
 
+// Ping проверяет доступность хранилища (заглушка).
 func (s *Storage) Ping() error {
 	return nil
 }
 
+// NewTestStorage создаёт тестовое хранилище в памяти.
+// Используется в тестах.
 func NewTestStorage() *Storage {
 	return &Storage{
 		data: make(map[string]string),
 	}
 }
 
+// BatchSave сохраняет несколько записей за один вызов.
 func (s *Storage) BatchSave(userID string, entries []storage.BatchEntry) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -71,6 +81,7 @@ func (s *Storage) GetUserURLs(userID string) ([]storage.UserURL, error) {
 	return result, nil
 }
 
+// MarkAsDeleted помечает ссылки пользователя как удалённые (заглушка).
 func (s *Storage) MarkAsDeleted(userID string, ids []string) error {
 	return storage.ErrNotImplemented
 }

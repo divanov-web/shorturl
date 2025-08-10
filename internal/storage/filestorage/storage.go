@@ -12,18 +12,21 @@ import (
 	"github.com/divanov-web/shorturl/internal/utils/idgen"
 )
 
+// Item описывает ссылку для сохранения в файле.
 type Item struct {
 	UUID        string `json:"uuid"`
 	ShortURL    string `json:"short_url"`
 	OriginalURL string `json:"original_url"`
 }
 
+// Storage описывает сам Storage файлового хранилища.
 type Storage struct {
 	data     map[string]string
 	mu       sync.RWMutex
 	filePath string
 }
 
+// NewStorage создаёт файловое хранилище и загружает данные из указанного файла.
 func NewStorage(filePath string) (*Storage, error) {
 	s := &Storage{
 		data:     make(map[string]string),
@@ -38,6 +41,7 @@ func NewStorage(filePath string) (*Storage, error) {
 	return s, nil
 }
 
+// SaveURL сохраняет оригинальный URL и возвращает его короткий идентификатор.
 func (s *Storage) SaveURL(userID string, original string) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -54,6 +58,7 @@ func (s *Storage) SaveURL(userID string, original string) (string, error) {
 	return id, nil
 }
 
+// GetURL возвращает оригинальный URL по его короткому идентификатору.
 func (s *Storage) GetURL(id string) (string, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -61,6 +66,8 @@ func (s *Storage) GetURL(id string) (string, bool) {
 	return url, ok
 }
 
+// ForceSet добавляет или обновляет запись с указанным идентификатором и URL.
+// Используется в тестах.
 func (s *Storage) ForceSet(id, url string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -102,16 +109,20 @@ func (s *Storage) loadFromFile() error {
 	return scanner.Err()
 }
 
+// Ping проверяет доступность хранилища (заглушка).
 func (s *Storage) Ping() error {
 	return nil
 }
 
+// NewTestStorage создаёт тестовую версию файлового хранилища в памяти.
+// Используется в тестах.
 func NewTestStorage() *Storage {
 	return &Storage{
 		data: make(map[string]string),
 	}
 }
 
+// BatchSave сохраняет несколько записей за один вызов.
 func (s *Storage) BatchSave(userID string, entries []storage.BatchEntry) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -138,6 +149,7 @@ func (s *Storage) GetUserURLs(userID string) ([]storage.UserURL, error) {
 	return result, nil
 }
 
+// MarkAsDeleted помечает ссылки пользователя как удалённые (заглушка).
 func (s *Storage) MarkAsDeleted(userID string, ids []string) error {
 	return storage.ErrNotImplemented
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
+// Config структура с главным конфигом приложения
 type Config struct {
 	ServerAddress   string `env:"SERVER_ADDRESS"`
 	BaseURL         string `env:"BASE_URL"`
@@ -18,6 +19,7 @@ type Config struct {
 	PprofMode       bool   `env:"PPROF_MODE"`
 }
 
+// NewConfig Создаёт конфиг приложения и возвращает в виде структуры
 func NewConfig() *Config {
 	// Загрузим .env только если переменные ещё не заданы в окружении
 	_ = godotenv.Load()

@@ -15,16 +15,20 @@ const (
 
 type contextKey string
 
+// UserIDKey Имя переменной в контексте, которая хранит id пользователя для авторизации
 const UserIDKey contextKey = "user_id"
 
+// Auth Структура авторизации. Пока что хранит только секретный ключ
 type Auth struct {
 	Secret string
 }
 
+// NewAuth конструктор авторизации для middleware
 func NewAuth(secret string) *Auth {
 	return &Auth{Secret: secret}
 }
 
+// WithAuth middleware авторизации
 func (a *Auth) WithAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var userID string
