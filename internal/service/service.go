@@ -36,6 +36,7 @@ type URLService struct {
 	deleteChan chan deleteTask
 }
 
+// ErrAlreadyExists Ошибка url уже существует (от уровня сервиса)
 var ErrAlreadyExists = errors.New("url already exists (service)")
 
 // NewURLService создаёт новый сервис для работы с короткими ссылками и запускает воркер удаления.
