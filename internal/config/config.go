@@ -14,6 +14,7 @@ type Config struct {
 	DatabaseDSN     string `env:"DATABASE_DSN"`
 	AuthSecret      string `env:"AUTH_SECRET"`
 	StorageType     string //определяется автоматически
+	PprofMode       bool   `env:"PPROF_MODE"`
 }
 
 func NewConfig() *Config {
@@ -26,6 +27,7 @@ func NewConfig() *Config {
 	filePathFlag := flag.String("f", "", "путь к файлу хранения данных")
 	dbDSNFlag := flag.String("d", "", "строка подключения к БД")
 	authSecretFlag := flag.String("auth-secret", "", "секрет для подписи JWT")
+	pprofFlag := flag.Bool("pprof", false, "включить pprof-сервер")
 
 	flag.Parse()
 
@@ -40,6 +42,7 @@ func NewConfig() *Config {
 		FileStoragePath: chooseValue(envCfg.FileStoragePath, *filePathFlag, "shortener_data.json"),
 		DatabaseDSN:     chooseValue(envCfg.DatabaseDSN, *dbDSNFlag, ""),
 		AuthSecret:      chooseValue(envCfg.AuthSecret, *authSecretFlag, "dev-secret-key"),
+		PprofMode:       envCfg.PprofMode || *pprofFlag,
 	}
 
 	cfg.StorageType = detectStorageType(cfg.DatabaseDSN, cfg.FileStoragePath)

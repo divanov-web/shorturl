@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bytes"
 	"errors"
 	"github.com/divanov-web/shorturl/internal/middleware"
 	"github.com/divanov-web/shorturl/internal/service"
@@ -14,20 +15,24 @@ func (h *Handler) MainPage(w http.ResponseWriter, r *http.Request) {
 	var originalURL string
 
 	ct := r.Header.Get("Content-Type")
-	switch {
-	case ct == "application/x-www-form-urlencoded":
+	if strings.HasPrefix(ct, "application/x-www-form-urlencoded") {
 		if err := r.ParseForm(); err != nil {
 			http.Error(w, "Ошибка парсинга формы", http.StatusBadRequest)
 			return
 		}
-		originalURL = r.FormValue("url")
-	default:
-		body, err := io.ReadAll(r.Body)
-		if err != nil || len(body) == 0 {
+		originalURL = strings.TrimSpace(r.FormValue("url"))
+	} else {
+		b, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "Ошибка чтения тела", http.StatusBadRequest)
+			return
+		}
+		b = bytes.TrimSpace(b)
+		if len(b) == 0 {
 			http.Error(w, "Пустое тело запроса", http.StatusBadRequest)
 			return
 		}
-		originalURL = strings.TrimSpace(string(body))
+		originalURL = string(b)
 	}
 
 	if originalURL == "" || !isValidURL(originalURL) {

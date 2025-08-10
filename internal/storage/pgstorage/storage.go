@@ -55,30 +55,42 @@ func (s *Storage) ensureTable(ctx context.Context) error {
 
 func (s *Storage) SaveURL(userID string, original string) (string, error) {
 	ctx := context.Background()
-	shortURL := idgen.Generate(8)
 
-	_, err := s.pool.Exec(ctx,
-		`INSERT INTO short_urls (short_url, original_url, user_guid) VALUES ($1, $2, $3)`,
-		shortURL, original, userID,
-	)
-	if err == nil {
-		return shortURL, nil
-	}
+	const maxRetries = 3
+	for i := 0; i < maxRetries; i++ {
+		candidate := idgen.Generate(8)
 
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
-		// Запись уже есть — достаём существующий short_url
-		var existing string
-		queryErr := s.pool.QueryRow(ctx,
-			`SELECT short_url FROM short_urls WHERE original_url = $1`,
-			original,
-		).Scan(&existing)
-		if queryErr == nil {
-			return existing, storage.ErrConflict
+		// новый short_url, если вставка прошла
+		// существующий short_url, если сработал конфликт по original_url
+		var out string
+		err := s.pool.QueryRow(ctx, `
+			INSERT INTO short_urls (short_url, original_url, user_guid)
+			VALUES ($1, $2, $3)
+			ON CONFLICT (original_url) DO UPDATE
+				SET original_url = EXCLUDED.original_url
+			RETURNING short_url
+		`, candidate, original, userID).Scan(&out)
+
+		if err == nil {
+			// если short совпал с существующим для другого original_url
+			if out != candidate {
+				return out, storage.ErrConflict
+			}
+			return out, nil
 		}
+
+		// Если это именно коллизия по short_url — перегенерируем и пробуем снова
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
+			// Пробуем ещё раз с новым id
+			continue
+		}
+
+		// Иная ошибка — отдаём наверх
+		return "", fmt.Errorf("save failed: %w", err)
 	}
 
-	return "", fmt.Errorf("save failed: %w", err)
+	return "", fmt.Errorf("save failed: short id collision after %d retries", maxRetries)
 }
 
 func (s *Storage) GetURL(id string) (string, bool) {
