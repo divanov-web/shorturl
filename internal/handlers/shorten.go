@@ -11,6 +11,8 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+// SetShortURL хэндлер. По полученному Url делает короткий shortURL
+// Основной метод коротких ссылок
 func (h *Handler) SetShortURL(w http.ResponseWriter, r *http.Request) {
 	var data DataRequest
 

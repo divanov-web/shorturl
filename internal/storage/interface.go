@@ -1,13 +1,16 @@
+// Package storage слой storage(repository) для коротких ссылок
 package storage
 
 import "errors"
 
+// BatchEntry структура полученного url для групповых батч записей
 type BatchEntry struct {
 	ShortURL      string
 	OriginalURL   string
 	CorrelationID string
 }
 
+// UserURL структура полученного url от пользователя для одиночных записей
 type UserURL struct {
 	ShortURL    string
 	OriginalURL string

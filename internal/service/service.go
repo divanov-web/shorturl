@@ -1,3 +1,4 @@
+// Package service слой сервиса для коротких ссылок
 package service
 
 import (
