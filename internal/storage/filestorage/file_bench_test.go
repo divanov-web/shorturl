@@ -1,6 +1,7 @@
 package filestorage_test
 
 import (
+	"context"
 	"path/filepath"
 	"strconv"
 	"testing"
@@ -23,7 +24,7 @@ func BenchmarkFileStorage_SaveURL(b *testing.B) {
 
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		_, _ = s.SaveURL(user, base+strconv.Itoa(i))
+		_, _ = s.SaveURL(context.Background(), user, base+strconv.Itoa(i))
 	}
 }
 
@@ -42,7 +43,7 @@ func BenchmarkFileStorage_GetURL(b *testing.B) {
 	const N = 2000
 	ids := make([]string, N)
 	for i := 0; i < N; i++ {
-		id, _ := s.SaveURL(user, "https://example.com/"+strconv.Itoa(i))
+		id, _ := s.SaveURL(context.Background(), user, "https://example.com/"+strconv.Itoa(i))
 		ids[i] = id
 	}
 
@@ -51,7 +52,7 @@ func BenchmarkFileStorage_GetURL(b *testing.B) {
 
 	j := 0
 	for i := 0; i < b.N; i++ {
-		_, _ = s.GetURL(ids[j])
+		_, _ = s.GetURL(context.Background(), ids[j])
 		j++
 		if j == N {
 			j = 0
@@ -85,6 +86,6 @@ func BenchmarkFileStorage_BatchSave_NewEntries(b *testing.B) {
 				OriginalURL:   "https://example.com/" + id,
 			}
 		}
-		_ = s.BatchSave(user, entries)
+		_ = s.BatchSave(context.Background(), user, entries)
 	}
 }

@@ -47,7 +47,7 @@ func (h *Handler) MainPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	shortURL, err := h.Service.CreateShort(userID, originalURL)
+	shortURL, err := h.Service.CreateShort(r.Context(), userID, originalURL)
 	if errors.Is(err, service.ErrAlreadyExists) {
 		w.Header().Set("Content-Type", "text/plain")
 		w.WriteHeader(http.StatusConflict) // 409

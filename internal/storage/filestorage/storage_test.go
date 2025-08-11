@@ -2,6 +2,7 @@ package filestorage_test
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -31,10 +32,10 @@ func TestNewStorage_LoadFromExistingFile(t *testing.T) {
 		t.Fatalf("NewStorage: %v", err)
 	}
 
-	if got, ok := s.GetURL("abc12345"); !ok || got != "https://a.com" {
+	if got, ok := s.GetURL(context.Background(), "abc12345"); !ok || got != "https://a.com" {
 		t.Fatalf("GetURL abc12345 = (%q,%v), want (https://a.com,true)", got, ok)
 	}
-	if got, ok := s.GetURL("zzz00000"); !ok || got != "https://b.com" {
+	if got, ok := s.GetURL(context.Background(), "zzz00000"); !ok || got != "https://b.com" {
 		t.Fatalf("GetURL zzz00000 = (%q,%v), want (https://b.com,true)", got, ok)
 	}
 }
@@ -49,7 +50,7 @@ func TestSaveURL_WritesToMapAndFile(t *testing.T) {
 		t.Fatalf("NewStorage: %v", err)
 	}
 
-	id, err := s.SaveURL("user1", "https://example.com/one")
+	id, err := s.SaveURL(context.Background(), "user1", "https://example.com/one")
 	if err != nil {
 		t.Fatalf("SaveURL: %v", err)
 	}
@@ -57,7 +58,7 @@ func TestSaveURL_WritesToMapAndFile(t *testing.T) {
 		t.Fatalf("id length = %d, want 8", len(id))
 	}
 
-	if got, ok := s.GetURL(id); !ok || got != "https://example.com/one" {
+	if got, ok := s.GetURL(context.Background(), id); !ok || got != "https://example.com/one" {
 		t.Fatalf("GetURL by id = (%q,%v), want (https://example.com/one,true)", got, ok)
 	}
 
@@ -85,19 +86,19 @@ func TestBatchSave_AddsOnlyNewAndAppendsToFile(t *testing.T) {
 		{ShortURL: "id1", OriginalURL: "https://a.com", CorrelationID: "1"},
 		{ShortURL: "id2", OriginalURL: "https://b.com", CorrelationID: "2"},
 	}
-	if err := s.BatchSave("user1", batch); err != nil {
+	if err := s.BatchSave(context.Background(), "user1", batch); err != nil {
 		t.Fatalf("BatchSave first: %v", err)
 	}
 	// повтор — записи уже существуют, в файл не должны добавиться дубликаты
-	if err := s.BatchSave("user1", batch); err != nil {
+	if err := s.BatchSave(context.Background(), "user1", batch); err != nil {
 		t.Fatalf("BatchSave second: %v", err)
 	}
 
 	// карта хранит обе записи
-	if got, ok := s.GetURL("id1"); !ok || got != "https://a.com" {
+	if got, ok := s.GetURL(context.Background(), "id1"); !ok || got != "https://a.com" {
 		t.Fatalf("GetURL id1 = (%q,%v), want (https://a.com,true)", got, ok)
 	}
-	if got, ok := s.GetURL("id2"); !ok || got != "https://b.com" {
+	if got, ok := s.GetURL(context.Background(), "id2"); !ok || got != "https://b.com" {
 		t.Fatalf("GetURL id2 = (%q,%v), want (https://b.com,true)", got, ok)
 	}
 

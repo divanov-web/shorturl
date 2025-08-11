@@ -30,11 +30,11 @@ func (h *Handler) SetShortURL(w http.ResponseWriter, r *http.Request) {
 
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok {
-		http.Error(w, "Ошибка определения userID из кук", http.StatusBadRequest)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	shortURL, err := h.Service.CreateShort(userID, originalURL)
+	shortURL, err := h.Service.CreateShort(r.Context(), userID, originalURL)
 	if errors.Is(err, service.ErrAlreadyExists) {
 		result := DataResponse{Result: shortURL}
 		w.Header().Set("Content-Type", "application/json")
@@ -59,7 +59,7 @@ func (h *Handler) SetShortURL(w http.ResponseWriter, r *http.Request) {
 // GetRealURL хэндлер Get запрос на получение ссылки из хеша
 func (h *Handler) GetRealURL(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	realURL, ok := h.Service.ResolveShort(id)
+	realURL, ok := h.Service.ResolveShort(r.Context(), id)
 	if !ok {
 		w.WriteHeader(http.StatusGone)
 		return
@@ -91,11 +91,11 @@ func (h *Handler) SetShortenBatch(w http.ResponseWriter, r *http.Request) {
 
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok {
-		http.Error(w, "Ошибка определения userID из кук", http.StatusBadRequest)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	results, err := h.Service.CreateShortBatch(userID, batch)
+	results, err := h.Service.CreateShortBatch(r.Context(), userID, batch)
 	if err != nil {
 		http.Error(w, "Ошибка при сохранении ссылок", http.StatusInternalServerError)
 		return
@@ -117,7 +117,7 @@ func (h *Handler) GetUserURLs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	urls, err := h.Service.GetUserURLs(userID)
+	urls, err := h.Service.GetUserURLs(r.Context(), userID)
 	if err != nil {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
@@ -138,7 +138,7 @@ func (h *Handler) GetUserURLs(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(response)
+	json.NewEncoder(w).Encode(response)
 }
 
 // DeleteUserURL хендлер удаления url пользователя. json: ["6qxTVvsy", "RTfd56hn", "Jlfd67ds"]

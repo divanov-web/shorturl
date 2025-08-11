@@ -60,9 +60,7 @@ func (s *Storage) ensureTable(ctx context.Context) error {
 // SaveURL сохраняет оригинальный URL и возвращает его короткий идентификатор.
 // При повторной вставке того же URL возвращает существующий short_url и ErrConflict.
 // Используется ON CONFLICT только для инкремента с оптимизацией производительности.
-func (s *Storage) SaveURL(userID string, original string) (string, error) {
-	ctx := context.Background()
-
+func (s *Storage) SaveURL(ctx context.Context, userID string, original string) (string, error) {
 	const maxRetries = 3
 	for i := 0; i < maxRetries; i++ {
 		candidate := idgen.Generate(8)
@@ -101,8 +99,8 @@ func (s *Storage) SaveURL(userID string, original string) (string, error) {
 }
 
 // GetURL возвращает оригинальный URL по его короткому идентификатору.
-func (s *Storage) GetURL(id string) (string, bool) {
-	ctx := context.Background()
+func (s *Storage) GetURL(ctx context.Context, id string) (string, bool) {
+
 	var url string
 	err := s.pool.QueryRow(ctx, `
 		SELECT original_url 
@@ -133,8 +131,7 @@ func (s *Storage) Close() {
 }
 
 // BatchSave сохраняет парные значения id+url в рамках одной транзакции.
-func (s *Storage) BatchSave(userID string, entries []storage.BatchEntry) error {
-	ctx := context.Background()
+func (s *Storage) BatchSave(ctx context.Context, userID string, entries []storage.BatchEntry) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -156,9 +153,7 @@ func (s *Storage) BatchSave(userID string, entries []storage.BatchEntry) error {
 }
 
 // GetUserURLs возвращает все ссылки пользователя, которые не помечены удалёнными.
-func (s *Storage) GetUserURLs(userID string) ([]storage.UserURL, error) {
-	ctx := context.Background()
-
+func (s *Storage) GetUserURLs(ctx context.Context, userID string) ([]storage.UserURL, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT short_url, original_url
 		FROM short_urls
@@ -182,9 +177,7 @@ func (s *Storage) GetUserURLs(userID string) ([]storage.UserURL, error) {
 }
 
 // MarkAsDeleted помечает указанные короткие ссылки пользователя как удалённые.
-func (s *Storage) MarkAsDeleted(userID string, ids []string) error {
-	ctx := context.Background()
-
+func (s *Storage) MarkAsDeleted(ctx context.Context, userID string, ids []string) error {
 	if len(ids) == 0 {
 		return nil
 	}

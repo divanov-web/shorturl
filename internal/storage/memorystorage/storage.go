@@ -1,6 +1,7 @@
 package memorystorage
 
 import (
+	"context"
 	"sync"
 
 	"github.com/divanov-web/shorturl/internal/storage"
@@ -21,7 +22,7 @@ func NewStorage() (*Storage, error) {
 }
 
 // SaveURL сохраняет оригинальный URL и возвращает его короткий идентификатор.
-func (s *Storage) SaveURL(userID string, original string) (string, error) {
+func (s *Storage) SaveURL(ctx context.Context, userID string, original string) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -32,7 +33,7 @@ func (s *Storage) SaveURL(userID string, original string) (string, error) {
 }
 
 // GetURL возвращает оригинальный URL по его короткому идентификатору.
-func (s *Storage) GetURL(id string) (string, bool) {
+func (s *Storage) GetURL(ctx context.Context, id string) (string, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	url, ok := s.data[id]
@@ -61,7 +62,7 @@ func NewTestStorage() *Storage {
 }
 
 // BatchSave сохраняет несколько записей за один вызов.
-func (s *Storage) BatchSave(userID string, entries []storage.BatchEntry) error {
+func (s *Storage) BatchSave(ctx context.Context, userID string, entries []storage.BatchEntry) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -76,12 +77,12 @@ func (s *Storage) BatchSave(userID string, entries []storage.BatchEntry) error {
 }
 
 // GetUserURLs - заглушка, отправляем пустой список
-func (s *Storage) GetUserURLs(userID string) ([]storage.UserURL, error) {
+func (s *Storage) GetUserURLs(ctx context.Context, userID string) ([]storage.UserURL, error) {
 	var result []storage.UserURL
 	return result, nil
 }
 
 // MarkAsDeleted помечает ссылки пользователя как удалённые (заглушка).
-func (s *Storage) MarkAsDeleted(userID string, ids []string) error {
+func (s *Storage) MarkAsDeleted(ctx context.Context, userID string, ids []string) error {
 	return storage.ErrNotImplemented
 }

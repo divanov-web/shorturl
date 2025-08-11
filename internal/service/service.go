@@ -52,13 +52,13 @@ func NewURLService(ctx context.Context, baseURL string, repo storage.Storage) *U
 }
 
 // CreateShort создаёт короткую ссылку для переданного оригинального URL.
-func (s *URLService) CreateShort(userID string, original string) (string, error) {
+func (s *URLService) CreateShort(ctx context.Context, userID string, original string) (string, error) {
 	original = strings.TrimSpace(original)
 	if original == "" {
 		return "", fmt.Errorf("empty original URL")
 	}
 
-	id, err := s.Repo.SaveURL(userID, original)
+	id, err := s.Repo.SaveURL(ctx, userID, original)
 	if errors.Is(err, storage.ErrConflict) {
 		return fmt.Sprintf("%s/%s", s.BaseURL, id), ErrAlreadyExists
 	}
@@ -67,7 +67,7 @@ func (s *URLService) CreateShort(userID string, original string) (string, error)
 }
 
 // CreateShortBatch создаёт несколько коротких ссылок за один запрос.
-func (s *URLService) CreateShortBatch(userID string, input []BatchRequestItem) ([]ShortenBatchResult, error) {
+func (s *URLService) CreateShortBatch(ctx context.Context, userID string, input []BatchRequestItem) ([]ShortenBatchResult, error) {
 	entries := make([]storage.BatchEntry, 0, len(input))
 	results := make([]ShortenBatchResult, 0, len(input))
 
@@ -84,7 +84,7 @@ func (s *URLService) CreateShortBatch(userID string, input []BatchRequestItem) (
 		})
 	}
 
-	if err := s.Repo.BatchSave(userID, entries); err != nil {
+	if err := s.Repo.BatchSave(ctx, userID, entries); err != nil {
 		return nil, err
 	}
 
@@ -92,8 +92,8 @@ func (s *URLService) CreateShortBatch(userID string, input []BatchRequestItem) (
 }
 
 // ResolveShort возвращает оригинальный URL по идентификатору короткой ссылки.
-func (s *URLService) ResolveShort(id string) (string, bool) {
-	return s.Repo.GetURL(id)
+func (s *URLService) ResolveShort(ctx context.Context, id string) (string, bool) {
+	return s.Repo.GetURL(ctx, id)
 }
 
 // Ping проверяет доступность хранилища, если оно поддерживает метод Ping.
@@ -105,13 +105,13 @@ func (s *URLService) Ping() error {
 }
 
 // GetUserURLs возвращает список коротких ссылок пользователя.
-func (s *URLService) GetUserURLs(userID string) ([]storage.UserURL, error) {
-	return s.Repo.GetUserURLs(userID)
+func (s *URLService) GetUserURLs(ctx context.Context, userID string) ([]storage.UserURL, error) {
+	return s.Repo.GetUserURLs(ctx, userID)
 }
 
 // DeleteUserURLs помечает ссылки пользователя как удалённые.
-func (s *URLService) DeleteUserURLs(userID string, ids []string) error {
-	return s.Repo.MarkAsDeleted(userID, ids)
+func (s *URLService) DeleteUserURLs(ctx context.Context, userID string, ids []string) error {
+	return s.Repo.MarkAsDeleted(ctx, userID, ids)
 }
 
 // startDeleteWorker запускает фоновую обработку задач на удаление ссылок.
@@ -127,20 +127,20 @@ func (s *URLService) startDeleteWorker(ctx context.Context) {
 		case task, ok := <-s.deleteChan:
 			if !ok {
 				// Канал закрыт — flush и выход
-				s.flushBuffer(buffer)
+				s.flushBuffer(ctx, buffer)
 				return
 			}
 			buffer[task.UserID] = append(buffer[task.UserID], task.IDs...)
 			if len(buffer[task.UserID]) >= maxBatchSize {
-				_ = s.Repo.MarkAsDeleted(task.UserID, buffer[task.UserID])
+				_ = s.Repo.MarkAsDeleted(ctx, task.UserID, buffer[task.UserID])
 				buffer[task.UserID] = buffer[task.UserID][:0]
 			}
 		case <-ticker.C:
 			// периодический сброс буфера
-			s.flushBuffer(buffer)
+			s.flushBuffer(ctx, buffer)
 		case <-ctx.Done():
 			// Завершение через context — тоже flush
-			s.flushBuffer(buffer)
+			s.flushBuffer(ctx, buffer)
 			return
 		}
 	}
@@ -148,10 +148,10 @@ func (s *URLService) startDeleteWorker(ctx context.Context) {
 
 // flushBuffer - сейчас перед удалением накапливается буфер из задач на удаление.
 // Если буфер не накопился, его нужно сбрасывать вручную
-func (s *URLService) flushBuffer(buffer map[string][]string) {
+func (s *URLService) flushBuffer(ctx context.Context, buffer map[string][]string) {
 	for userID, ids := range buffer {
 		if len(ids) > 0 {
-			_ = s.Repo.MarkAsDeleted(userID, ids)
+			_ = s.Repo.MarkAsDeleted(ctx, userID, ids)
 		}
 	}
 }
