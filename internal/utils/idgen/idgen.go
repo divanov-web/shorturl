@@ -9,6 +9,7 @@ const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 var seededRand = rand.New(rand.NewSource(time.Now().UnixNano()))
 
+// Generate Генерирует случайный id для идентификатора ссылки
 func Generate(n int) string {
 	b := make([]byte, n)
 	for i := range b {

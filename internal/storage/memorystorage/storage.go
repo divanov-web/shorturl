@@ -1,23 +1,28 @@
 package memorystorage
 
 import (
+	"context"
+	"sync"
+
 	"github.com/divanov-web/shorturl/internal/storage"
 	"github.com/divanov-web/shorturl/internal/utils/idgen"
-	"sync"
 )
 
+// Storage описывает хранение в оперативной памяти.
 type Storage struct {
 	data map[string]string
 	mu   sync.RWMutex
 }
 
+// NewStorage создаёт новое хранилище в оперативной памяти.
 func NewStorage() (*Storage, error) {
 	return &Storage{
 		data: make(map[string]string),
 	}, nil
 }
 
-func (s *Storage) SaveURL(userID string, original string) (string, error) {
+// SaveURL сохраняет оригинальный URL и возвращает его короткий идентификатор.
+func (s *Storage) SaveURL(ctx context.Context, userID string, original string) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -27,30 +32,37 @@ func (s *Storage) SaveURL(userID string, original string) (string, error) {
 	return id, nil
 }
 
-func (s *Storage) GetURL(id string) (string, bool) {
+// GetURL возвращает оригинальный URL по его короткому идентификатору.
+func (s *Storage) GetURL(ctx context.Context, id string) (string, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	url, ok := s.data[id]
 	return url, ok
 }
 
+// ForceSet добавляет или обновляет запись с указанным идентификатором и URL.
+// Используется в тестах.
 func (s *Storage) ForceSet(id, url string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.data[id] = url
 }
 
+// Ping проверяет доступность хранилища (заглушка).
 func (s *Storage) Ping() error {
 	return nil
 }
 
+// NewTestStorage создаёт тестовое хранилище в памяти.
+// Используется в тестах.
 func NewTestStorage() *Storage {
 	return &Storage{
 		data: make(map[string]string),
 	}
 }
 
-func (s *Storage) BatchSave(userID string, entries []storage.BatchEntry) error {
+// BatchSave сохраняет несколько записей за один вызов.
+func (s *Storage) BatchSave(ctx context.Context, userID string, entries []storage.BatchEntry) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -65,11 +77,12 @@ func (s *Storage) BatchSave(userID string, entries []storage.BatchEntry) error {
 }
 
 // GetUserURLs - заглушка, отправляем пустой список
-func (s *Storage) GetUserURLs(userID string) ([]storage.UserURL, error) {
+func (s *Storage) GetUserURLs(ctx context.Context, userID string) ([]storage.UserURL, error) {
 	var result []storage.UserURL
 	return result, nil
 }
 
-func (s *Storage) MarkAsDeleted(userID string, ids []string) error {
+// MarkAsDeleted помечает ссылки пользователя как удалённые (заглушка).
+func (s *Storage) MarkAsDeleted(ctx context.Context, userID string, ids []string) error {
 	return storage.ErrNotImplemented
 }

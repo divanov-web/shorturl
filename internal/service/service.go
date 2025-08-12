@@ -1,20 +1,24 @@
+// Package service слой сервиса для коротких ссылок
 package service
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/divanov-web/shorturl/internal/storage"
-	"github.com/divanov-web/shorturl/internal/utils/idgen"
 	"strings"
 	"time"
+
+	"github.com/divanov-web/shorturl/internal/storage"
+	"github.com/divanov-web/shorturl/internal/utils/idgen"
 )
 
+// BatchRequestItem описывает входные данные для пакетного создания коротких ссылок.
 type BatchRequestItem struct {
 	CorrelationID string `json:"correlation_id"`
 	OriginalURL   string `json:"original_url"`
 }
 
+// ShortenBatchResult описывает результат пакетного сокращения ссылок.
 type ShortenBatchResult struct {
 	CorrelationID string `json:"correlation_id"`
 	ShortURL      string `json:"short_url"`
@@ -25,14 +29,17 @@ type deleteTask struct {
 	IDs    []string
 }
 
+// URLService описывает бизнес-логику сервиса коротких ссылок.
 type URLService struct {
 	BaseURL    string
 	Repo       storage.Storage
 	deleteChan chan deleteTask
 }
 
+// ErrAlreadyExists Ошибка url уже существует (от уровня сервиса)
 var ErrAlreadyExists = errors.New("url already exists (service)")
 
+// NewURLService создаёт новый сервис для работы с короткими ссылками и запускает воркер удаления.
 func NewURLService(ctx context.Context, baseURL string, repo storage.Storage) *URLService {
 	svc := &URLService{
 		BaseURL:    baseURL,
@@ -44,13 +51,14 @@ func NewURLService(ctx context.Context, baseURL string, repo storage.Storage) *U
 	return svc
 }
 
-func (s *URLService) CreateShort(userID string, original string) (string, error) {
+// CreateShort создаёт короткую ссылку для переданного оригинального URL.
+func (s *URLService) CreateShort(ctx context.Context, userID string, original string) (string, error) {
 	original = strings.TrimSpace(original)
 	if original == "" {
 		return "", fmt.Errorf("empty original URL")
 	}
 
-	id, err := s.Repo.SaveURL(userID, original)
+	id, err := s.Repo.SaveURL(ctx, userID, original)
 	if errors.Is(err, storage.ErrConflict) {
 		return fmt.Sprintf("%s/%s", s.BaseURL, id), ErrAlreadyExists
 	}
@@ -58,7 +66,8 @@ func (s *URLService) CreateShort(userID string, original string) (string, error)
 	return fmt.Sprintf("%s/%s", s.BaseURL, id), err
 }
 
-func (s *URLService) CreateShortBatch(userID string, input []BatchRequestItem) ([]ShortenBatchResult, error) {
+// CreateShortBatch создаёт несколько коротких ссылок за один запрос.
+func (s *URLService) CreateShortBatch(ctx context.Context, userID string, input []BatchRequestItem) ([]ShortenBatchResult, error) {
 	entries := make([]storage.BatchEntry, 0, len(input))
 	results := make([]ShortenBatchResult, 0, len(input))
 
@@ -75,17 +84,19 @@ func (s *URLService) CreateShortBatch(userID string, input []BatchRequestItem) (
 		})
 	}
 
-	if err := s.Repo.BatchSave(userID, entries); err != nil {
+	if err := s.Repo.BatchSave(ctx, userID, entries); err != nil {
 		return nil, err
 	}
 
 	return results, nil
 }
 
-func (s *URLService) ResolveShort(id string) (string, bool) {
-	return s.Repo.GetURL(id)
+// ResolveShort возвращает оригинальный URL по идентификатору короткой ссылки.
+func (s *URLService) ResolveShort(ctx context.Context, id string) (string, bool) {
+	return s.Repo.GetURL(ctx, id)
 }
 
+// Ping проверяет доступность хранилища, если оно поддерживает метод Ping.
 func (s *URLService) Ping() error {
 	if pinger, ok := s.Repo.(interface{ Ping() error }); ok {
 		return pinger.Ping()
@@ -93,14 +104,17 @@ func (s *URLService) Ping() error {
 	return nil
 }
 
-func (s *URLService) GetUserURLs(userID string) ([]storage.UserURL, error) {
-	return s.Repo.GetUserURLs(userID)
+// GetUserURLs возвращает список коротких ссылок пользователя.
+func (s *URLService) GetUserURLs(ctx context.Context, userID string) ([]storage.UserURL, error) {
+	return s.Repo.GetUserURLs(ctx, userID)
 }
 
-func (s *URLService) DeleteUserURLs(userID string, ids []string) error {
-	return s.Repo.MarkAsDeleted(userID, ids)
+// DeleteUserURLs помечает ссылки пользователя как удалённые.
+func (s *URLService) DeleteUserURLs(ctx context.Context, userID string, ids []string) error {
+	return s.Repo.MarkAsDeleted(ctx, userID, ids)
 }
 
+// startDeleteWorker запускает фоновую обработку задач на удаление ссылок.
 func (s *URLService) startDeleteWorker(ctx context.Context) {
 	const maxBatchSize = 100
 
@@ -113,20 +127,20 @@ func (s *URLService) startDeleteWorker(ctx context.Context) {
 		case task, ok := <-s.deleteChan:
 			if !ok {
 				// Канал закрыт — flush и выход
-				s.flushBuffer(buffer)
+				s.flushBuffer(ctx, buffer)
 				return
 			}
 			buffer[task.UserID] = append(buffer[task.UserID], task.IDs...)
 			if len(buffer[task.UserID]) >= maxBatchSize {
-				_ = s.Repo.MarkAsDeleted(task.UserID, buffer[task.UserID])
+				_ = s.Repo.MarkAsDeleted(ctx, task.UserID, buffer[task.UserID])
 				buffer[task.UserID] = buffer[task.UserID][:0]
 			}
 		case <-ticker.C:
 			// периодический сброс буфера
-			s.flushBuffer(buffer)
+			s.flushBuffer(ctx, buffer)
 		case <-ctx.Done():
 			// Завершение через context — тоже flush
-			s.flushBuffer(buffer)
+			s.flushBuffer(ctx, buffer)
 			return
 		}
 	}
@@ -134,14 +148,15 @@ func (s *URLService) startDeleteWorker(ctx context.Context) {
 
 // flushBuffer - сейчас перед удалением накапливается буфер из задач на удаление.
 // Если буфер не накопился, его нужно сбрасывать вручную
-func (s *URLService) flushBuffer(buffer map[string][]string) {
+func (s *URLService) flushBuffer(ctx context.Context, buffer map[string][]string) {
 	for userID, ids := range buffer {
 		if len(ids) > 0 {
-			_ = s.Repo.MarkAsDeleted(userID, ids)
+			_ = s.Repo.MarkAsDeleted(ctx, userID, ids)
 		}
 	}
 }
 
+// DeleteShortURLsAsync добавляет задачу на асинхронное удаление ссылок.
 func (s *URLService) DeleteShortURLsAsync(userID string, ids []string) {
 	s.deleteChan <- deleteTask{
 		UserID: userID,

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/divanov-web/shorturl/internal/storage"
 	"github.com/divanov-web/shorturl/internal/utils/idgen"
 	"github.com/jackc/pgerrcode"
@@ -11,10 +12,12 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// Storage описывает сам Storage хранения в БД.
 type Storage struct {
 	pool *pgxpool.Pool
 }
 
+// NewPool создаёт новое подключение к пулу PostgreSQL по переданному DSN.
 func NewPool(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
 	cfg, err := pgxpool.ParseConfig(dsn)
 	if err != nil {
@@ -27,6 +30,7 @@ func NewPool(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
+// NewStorage создаёт хранилище в PostgreSQL и гарантирует наличие таблицы.
 func NewStorage(ctx context.Context, pool *pgxpool.Pool) (*Storage, error) {
 	storage := &Storage{
 		pool: pool,
@@ -53,36 +57,50 @@ func (s *Storage) ensureTable(ctx context.Context) error {
 	return err
 }
 
-func (s *Storage) SaveURL(userID string, original string) (string, error) {
-	ctx := context.Background()
-	shortURL := idgen.Generate(8)
+// SaveURL сохраняет оригинальный URL и возвращает его короткий идентификатор.
+// При повторной вставке того же URL возвращает существующий short_url и ErrConflict.
+// Используется ON CONFLICT только для инкремента с оптимизацией производительности.
+func (s *Storage) SaveURL(ctx context.Context, userID string, original string) (string, error) {
+	const maxRetries = 3
+	for i := 0; i < maxRetries; i++ {
+		candidate := idgen.Generate(8)
 
-	_, err := s.pool.Exec(ctx,
-		`INSERT INTO short_urls (short_url, original_url, user_guid) VALUES ($1, $2, $3)`,
-		shortURL, original, userID,
-	)
-	if err == nil {
-		return shortURL, nil
-	}
+		// новый short_url, если вставка прошла
+		// существующий short_url, если сработал конфликт по original_url
+		var out string
+		err := s.pool.QueryRow(ctx, `
+			INSERT INTO short_urls (short_url, original_url, user_guid)
+			VALUES ($1, $2, $3)
+			ON CONFLICT (original_url) DO UPDATE
+				SET original_url = EXCLUDED.original_url
+			RETURNING short_url
+		`, candidate, original, userID).Scan(&out)
 
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
-		// Запись уже есть — достаём существующий short_url
-		var existing string
-		queryErr := s.pool.QueryRow(ctx,
-			`SELECT short_url FROM short_urls WHERE original_url = $1`,
-			original,
-		).Scan(&existing)
-		if queryErr == nil {
-			return existing, storage.ErrConflict
+		if err == nil {
+			// если short совпал с существующим для другого original_url
+			if out != candidate {
+				return out, storage.ErrConflict
+			}
+			return out, nil
 		}
+
+		// Если это именно коллизия по short_url — перегенерируем и пробуем снова
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
+			// Пробуем ещё раз с новым id
+			continue
+		}
+
+		// Иная ошибка — отдаём наверх
+		return "", fmt.Errorf("save failed: %w", err)
 	}
 
-	return "", fmt.Errorf("save failed: %w", err)
+	return "", fmt.Errorf("save failed: short id collision after %d retries", maxRetries)
 }
 
-func (s *Storage) GetURL(id string) (string, bool) {
-	ctx := context.Background()
+// GetURL возвращает оригинальный URL по его короткому идентификатору.
+func (s *Storage) GetURL(ctx context.Context, id string) (string, bool) {
+
 	var url string
 	err := s.pool.QueryRow(ctx, `
 		SELECT original_url 
@@ -95,22 +113,25 @@ func (s *Storage) GetURL(id string) (string, bool) {
 	return url, true
 }
 
+// ForceSet добавляет или обновляет запись с указанным идентификатором и URL.
+// Используется в тестах.
 func (s *Storage) ForceSet(shortURL, url string) {
 	ctx := context.Background()
 	_, _ = s.pool.Exec(ctx, `INSERT INTO short_urls (short_url, original_url) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING`, shortURL, url)
 }
 
+// Ping проверяет доступность хранилища (заглушка).
 func (s *Storage) Ping() error {
 	return s.pool.Ping(context.Background())
 }
 
+// Close закрывает пул соединений с базой данных.
 func (s *Storage) Close() {
 	s.pool.Close()
 }
 
-// BatchSave сохраняет парные значения id+url в рамках одной транзакции
-func (s *Storage) BatchSave(userID string, entries []storage.BatchEntry) error {
-	ctx := context.Background()
+// BatchSave сохраняет парные значения id+url в рамках одной транзакции.
+func (s *Storage) BatchSave(ctx context.Context, userID string, entries []storage.BatchEntry) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -131,9 +152,8 @@ func (s *Storage) BatchSave(userID string, entries []storage.BatchEntry) error {
 	return tx.Commit(ctx)
 }
 
-func (s *Storage) GetUserURLs(userID string) ([]storage.UserURL, error) {
-	ctx := context.Background()
-
+// GetUserURLs возвращает все ссылки пользователя, которые не помечены удалёнными.
+func (s *Storage) GetUserURLs(ctx context.Context, userID string) ([]storage.UserURL, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT short_url, original_url
 		FROM short_urls
@@ -156,9 +176,8 @@ func (s *Storage) GetUserURLs(userID string) ([]storage.UserURL, error) {
 	return result, nil
 }
 
-func (s *Storage) MarkAsDeleted(userID string, ids []string) error {
-	ctx := context.Background()
-
+// MarkAsDeleted помечает указанные короткие ссылки пользователя как удалённые.
+func (s *Storage) MarkAsDeleted(ctx context.Context, userID string, ids []string) error {
 	if len(ids) == 0 {
 		return nil
 	}

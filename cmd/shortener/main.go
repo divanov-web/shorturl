@@ -2,6 +2,10 @@ package main
 
 import (
 	"context"
+	"log"
+	"net/http"
+	_ "net/http/pprof" // подключаем пакет pprof
+
 	"github.com/divanov-web/shorturl/internal/config"
 	"github.com/divanov-web/shorturl/internal/handlers"
 	"github.com/divanov-web/shorturl/internal/middleware"
@@ -12,11 +16,20 @@ import (
 	"github.com/divanov-web/shorturl/internal/storage/pgstorage"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
-	"net/http"
 )
 
 func main() {
 	cfg := config.NewConfig()
+
+	//Сервер профилирования pprof
+	if cfg.PprofMode {
+		go func() {
+			log.Println("pprof enabled at http://localhost:6060/debug/pprof/")
+			if err := http.ListenAndServe("localhost:6060", nil); err != nil {
+				log.Printf("pprof server error: %v", err)
+			}
+		}()
+	}
 
 	// создаём предустановленный регистратор zap
 	logger, err := zap.NewDevelopment()
@@ -74,6 +87,7 @@ func main() {
 		"DatabaseDSN", cfg.DatabaseDSN,
 		"FileStoragePath", cfg.FileStoragePath,
 		"StorageType", cfg.StorageType,
+		"PprofMode", cfg.PprofMode,
 	)
 
 	if err := http.ListenAndServe(cfg.ServerAddress, r); err != nil {

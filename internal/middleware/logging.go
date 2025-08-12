@@ -1,13 +1,15 @@
 package middleware
 
 import (
-	"go.uber.org/zap"
 	"net/http"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 var sugar *zap.SugaredLogger
 
+// SetLogger устанавливает логгер
 func SetLogger(l *zap.SugaredLogger) {
 	sugar = l
 }
@@ -26,15 +28,15 @@ type (
 	}
 )
 
+// Write записываем ответ, используя оригинальный http.ResponseWriter
 func (r *loggingResponseWriter) Write(b []byte) (int, error) {
-	// записываем ответ, используя оригинальный http.ResponseWriter
 	size, err := r.ResponseWriter.Write(b)
 	r.responseData.size += size // захватываем размер
 	return size, err
 }
 
+// WriteHeader записываем код статуса, используя оригинальный http.ResponseWriter
 func (r *loggingResponseWriter) WriteHeader(statusCode int) {
-	// записываем код статуса, используя оригинальный http.ResponseWriter
 	r.ResponseWriter.WriteHeader(statusCode)
 	r.responseData.status = statusCode // захватываем код статуса
 }
