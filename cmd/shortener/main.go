@@ -42,7 +42,7 @@ func main() {
 	middleware.SetLogger(sugar) // передаём логгер в middleware
 	//сброс буфера логгера (добавлено про запас по урокам)
 	defer func() {
-		if err := logger.Sync(); err != nil {
+		if syncErr := logger.Sync(); syncErr != nil {
 			sugar.Errorw("Failed to sync logger", "error", err)
 		}
 	}()
