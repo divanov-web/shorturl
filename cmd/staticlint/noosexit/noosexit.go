@@ -1,5 +1,4 @@
-// Package noosexit reports a diagnostic when os.Exit is called
-// directly inside main.main of package main.
+// Package noosexit анализатор запрещает использовать прямой вызов os.Exit в функции main пакета main
 package noosexit
 
 import (
@@ -8,6 +7,7 @@ import (
 	"golang.org/x/tools/go/analysis"
 )
 
+// Analyzer структура нового анализатора
 var Analyzer = &analysis.Analyzer{
 	Name: "noosexit",
 	Doc:  "forbid direct os.Exit calls in main.main",
