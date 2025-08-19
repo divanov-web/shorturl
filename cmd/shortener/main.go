@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	_ "net/http/pprof" // подключаем пакет pprof
@@ -18,7 +19,19 @@ import (
 	"go.uber.org/zap"
 )
 
+// билдить командой
+// go build -o shortener.exe -ldflags "-X 'main.buildVersion=v1.0.0' -X 'main.buildDate=2025-08-19' -X 'main.buildCommit=iter20'" ./cmd/shortener
+var (
+	buildVersion string
+	buildDate    string
+	buildCommit  string
+)
+
 func main() {
+	fmt.Printf("Build version: %s\n", valueOrNA(buildVersion))
+	fmt.Printf("Build date: %s\n", valueOrNA(buildDate))
+	fmt.Printf("Build commit: %s\n", valueOrNA(buildCommit))
+
 	cfg := config.NewConfig()
 
 	//Сервер профилирования pprof
@@ -116,4 +129,11 @@ func initStorage(ctx context.Context, cfg *config.Config) (storage.Storage, erro
 	default:
 		return memorystorage.NewStorage()
 	}
+}
+
+func valueOrNA(v string) string {
+	if v == "" {
+		return "N/A"
+	}
+	return v
 }
