@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -31,7 +32,12 @@ func main() {
 	// пишем запрос
 	// запрос методом POST должен, помимо заголовков, содержать тело
 	// тело должно быть источником потокового чтения io.Reader
-	request, err := http.NewRequest(http.MethodPost, endpoint, strings.NewReader(data.Encode()))
+	request, err := http.NewRequestWithContext(
+		context.Background(),
+		http.MethodPost,
+		endpoint,
+		strings.NewReader(data.Encode()),
+	)
 	if err != nil {
 		panic(err)
 	}

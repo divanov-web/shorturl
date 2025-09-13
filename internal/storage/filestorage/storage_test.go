@@ -86,11 +86,11 @@ func TestBatchSave_AddsOnlyNewAndAppendsToFile(t *testing.T) {
 		{ShortURL: "id1", OriginalURL: "https://a.com", CorrelationID: "1"},
 		{ShortURL: "id2", OriginalURL: "https://b.com", CorrelationID: "2"},
 	}
-	if err := s.BatchSave(context.Background(), "user1", batch); err != nil {
+	if err = s.BatchSave(context.Background(), "user1", batch); err != nil {
 		t.Fatalf("BatchSave first: %v", err)
 	}
 	// повтор — записи уже существуют, в файл не должны добавиться дубликаты
-	if err := s.BatchSave(context.Background(), "user1", batch); err != nil {
+	if err = s.BatchSave(context.Background(), "user1", batch); err != nil {
 		t.Fatalf("BatchSave second: %v", err)
 	}
 
