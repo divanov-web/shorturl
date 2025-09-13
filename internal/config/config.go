@@ -3,6 +3,7 @@ package config
 import (
 	"flag"
 	"log"
+	"strings"
 
 	"github.com/caarlos0/env/v6"
 	"github.com/joho/godotenv"
@@ -17,6 +18,7 @@ type Config struct {
 	AuthSecret      string `env:"AUTH_SECRET"`
 	StorageType     string //определяется автоматически
 	PprofMode       bool   `env:"PPROF_MODE"`
+	EnableHTTPS     bool   `env:"ENABLE_HTTPS"`
 }
 
 // NewConfig Создаёт конфиг приложения и возвращает в виде структуры
@@ -31,6 +33,7 @@ func NewConfig() *Config {
 	dbDSNFlag := flag.String("d", "", "строка подключения к БД")
 	authSecretFlag := flag.String("auth-secret", "", "секрет для подписи JWT")
 	pprofFlag := flag.Bool("pprof", false, "включить pprof-сервер")
+	httpsFlag := flag.Bool("s", false, "включить HTTPS-сервер")
 
 	flag.Parse()
 
@@ -46,6 +49,12 @@ func NewConfig() *Config {
 		DatabaseDSN:     chooseValue(envCfg.DatabaseDSN, *dbDSNFlag, ""),
 		AuthSecret:      chooseValue(envCfg.AuthSecret, *authSecretFlag, "dev-secret-key"),
 		PprofMode:       envCfg.PprofMode || *pprofFlag,
+		EnableHTTPS:     envCfg.EnableHTTPS || *httpsFlag,
+	}
+
+	// при HTTPS меняем протокол
+	if cfg.EnableHTTPS && strings.HasPrefix(cfg.BaseURL, "http://") {
+		cfg.BaseURL = "https://" + strings.TrimPrefix(cfg.BaseURL, "http://")
 	}
 
 	cfg.StorageType = detectStorageType(cfg.DatabaseDSN, cfg.FileStoragePath)
