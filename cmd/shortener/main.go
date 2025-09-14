@@ -56,7 +56,7 @@ func main() {
 	//сброс буфера логгера (добавлено про запас по урокам)
 	defer func() {
 		if syncErr := logger.Sync(); syncErr != nil {
-			sugar.Errorw("Failed to sync logger", "error", err)
+			sugar.Errorw("Failed to sync logger", "error", syncErr)
 		}
 	}()
 
@@ -101,10 +101,18 @@ func main() {
 		"FileStoragePath", cfg.FileStoragePath,
 		"StorageType", cfg.StorageType,
 		"PprofMode", cfg.PprofMode,
+		"EnableHTTPS", cfg.EnableHTTPS,
 	)
 
-	if err := http.ListenAndServe(cfg.ServerAddress, r); err != nil {
-		sugar.Fatalw("Server failed", "error", err)
+	if cfg.EnableHTTPS {
+		sugar.Infow("HTTPS enabled, starting with TLS")
+		if err := http.ListenAndServeTLS(cfg.ServerAddress, "server.crt", "server.key", r); err != nil {
+			sugar.Fatalw("Server failed", "error", err)
+		}
+	} else {
+		if err := http.ListenAndServe(cfg.ServerAddress, r); err != nil {
+			sugar.Fatalw("Server failed", "error", err)
+		}
 	}
 
 }
