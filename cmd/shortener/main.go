@@ -2,10 +2,15 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	_ "net/http/pprof" // подключаем пакет pprof
+	"os/signal"
+	"runtime"
+	"syscall"
+	"time"
 
 	"github.com/divanov-web/shorturl/internal/config"
 	"github.com/divanov-web/shorturl/internal/handlers"
@@ -55,8 +60,13 @@ func main() {
 	middleware.SetLogger(sugar) // передаём логгер в middleware
 	//сброс буфера логгера (добавлено про запас по урокам)
 	defer func() {
-		if syncErr := logger.Sync(); syncErr != nil {
-			sugar.Errorw("Failed to sync logger", "error", err)
+		//Если запускать по windows, то logger.Sync не работает корректно при Graceful shutdown, просто не делаем logger.Sync
+		if runtime.GOOS == "windows" {
+			sugar.Infow("Logger.Sync skipped on Windows due to potential stderr incompatibility")
+		} else {
+			if syncErr := logger.Sync(); syncErr != nil {
+				fmt.Printf("Failed to sync logger: %v\n", syncErr)
+			}
 		}
 	}()
 
@@ -68,6 +78,12 @@ func main() {
 	if err != nil {
 		sugar.Fatalw("failed to initialize storage", "error", err)
 	}
+	//При закрытии приложения выполняем аккуратное закрытие store
+	defer func() {
+		if storeDownErr := store.Shutdown(ctx); storeDownErr != nil {
+			sugar.Errorw("Error shutting down database storage", "error", storeDownErr)
+		}
+	}()
 
 	urlService := service.NewURLService(ctx, cfg.BaseURL, store)
 	h := handlers.NewHandler(urlService)
@@ -101,10 +117,45 @@ func main() {
 		"FileStoragePath", cfg.FileStoragePath,
 		"StorageType", cfg.StorageType,
 		"PprofMode", cfg.PprofMode,
+		"EnableHTTPS", cfg.EnableHTTPS,
 	)
 
-	if err := http.ListenAndServe(cfg.ServerAddress, r); err != nil {
-		sugar.Fatalw("Server failed", "error", err)
+	srv := &http.Server{
+		Addr:    cfg.ServerAddress,
+		Handler: r,
+	}
+
+	//запускаем сервер в горутине
+	go func() {
+		sugar.Infow("Starting server", "addr", cfg.ServerAddress, "https", cfg.EnableHTTPS)
+		var serverErr error
+		if cfg.EnableHTTPS {
+			sugar.Infow("HTTPS enabled")
+			serverErr = srv.ListenAndServeTLS("server.crt", "server.key")
+		} else {
+			serverErr = srv.ListenAndServe()
+		}
+		if serverErr != nil && !errors.Is(serverErr, http.ErrServerClosed) {
+			sugar.Fatalw("Server failed", "error", serverErr)
+		}
+	}()
+
+	//Регистрируем сигнал о завершении приложения
+	stopCtx, stop := signal.NotifyContext(ctx,
+		syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT,
+	)
+	defer stop()
+
+	// ждём сигнал
+	<-stopCtx.Done()
+
+	sugar.Infow("Shutting down...")
+
+	//останавливаем сервер
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer shutdownCancel()
+	if shutdownErr := srv.Shutdown(shutdownCtx); shutdownErr != nil {
+		sugar.Errorw("Graceful shutdown error", "error", shutdownErr)
 	}
 
 }

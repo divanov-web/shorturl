@@ -154,3 +154,9 @@ func (s *Storage) GetUserURLs(ctx context.Context, userID string) ([]storage.Use
 func (s *Storage) MarkAsDeleted(ctx context.Context, userID string, ids []string) error {
 	return storage.ErrNotImplemented
 }
+
+// Shutdown корректно завершает файловое хранилище
+// Вроде как в текущей реализации все файлы закрываются сами
+func (s *Storage) Shutdown(ctx context.Context) error {
+	return nil
+}
