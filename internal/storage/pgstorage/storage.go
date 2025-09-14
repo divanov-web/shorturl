@@ -196,3 +196,11 @@ func (s *Storage) MarkAsDeleted(ctx context.Context, userID string, ids []string
 
 	return err
 }
+
+// Shutdown корректно завершает пул соединений с базой данных
+func (s *Storage) Shutdown(ctx context.Context) error {
+	if s.pool != nil {
+		s.pool.Close() // Освобождаем соединения
+	}
+	return nil
+}
