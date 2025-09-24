@@ -1,8 +1,11 @@
 package config
 
 import (
+	"encoding/json"
 	"flag"
 	"log"
+	"os"
+	"strings"
 
 	"github.com/caarlos0/env/v6"
 	"github.com/joho/godotenv"
@@ -10,13 +13,15 @@ import (
 
 // Config структура с главным конфигом приложения
 type Config struct {
-	ServerAddress   string `env:"SERVER_ADDRESS"`
-	BaseURL         string `env:"BASE_URL"`
-	FileStoragePath string `env:"FILE_STORAGE_PATH"`
-	DatabaseDSN     string `env:"DATABASE_DSN"`
-	AuthSecret      string `env:"AUTH_SECRET"`
+	ServerAddress   string `env:"SERVER_ADDRESS" json:"server_address"`
+	BaseURL         string `env:"BASE_URL" json:"base_url"`
+	FileStoragePath string `env:"FILE_STORAGE_PATH" json:"file_storage_path"`
+	DatabaseDSN     string `env:"DATABASE_DSN" json:"database_dsn"`
+	AuthSecret      string `env:"AUTH_SECRET" json:"auth_secret"`
 	StorageType     string //определяется автоматически
-	PprofMode       bool   `env:"PPROF_MODE"`
+	PprofMode       bool   `env:"PPROF_MODE" json:"pprof_mode"`
+	EnableHTTPS     bool   `env:"ENABLE_HTTPS" json:"enable_https"`
+	ConfigPath      string `env:"CONFIG"`
 }
 
 // NewConfig Создаёт конфиг приложения и возвращает в виде структуры
@@ -31,21 +36,46 @@ func NewConfig() *Config {
 	dbDSNFlag := flag.String("d", "", "строка подключения к БД")
 	authSecretFlag := flag.String("auth-secret", "", "секрет для подписи JWT")
 	pprofFlag := flag.Bool("pprof", false, "включить pprof-сервер")
+	httpsFlag := flag.Bool("s", false, "включить HTTPS-сервер")
+	cfgPathFlag := flag.String("c", "", "путь к JSON-файлу конфигурации")
+	flag.StringVar(cfgPathFlag, "config", "", "путь к JSON-файлу конфигурации")
 
 	flag.Parse()
 
+	//Конфиг из переменных окружения
 	envCfg := Config{}
 	if err := env.Parse(&envCfg); err != nil {
+
 		log.Fatal(err)
 	}
 
+	//Конфиг из файла (самый низкий приоритет)
+	cfgFromFile := Config{}
+	configPath := chooseValue(envCfg.ConfigPath, *cfgPathFlag, "", "")
+	if configPath != "" {
+		if f, err := os.Open(configPath); err == nil {
+			defer f.Close()
+			if err := json.NewDecoder(f).Decode(&cfgFromFile); err != nil {
+				log.Printf("config: can't decode JSON config %q: %v", configPath, err)
+			}
+		} else {
+			log.Printf("config: can't open config file %q: %v", configPath, err)
+		}
+	}
+
 	cfg := &Config{
-		ServerAddress:   chooseValue(envCfg.ServerAddress, *addrFlag, "localhost:8080"),
-		BaseURL:         chooseValue(envCfg.BaseURL, *baseFlag, "http://localhost:8080"),
-		FileStoragePath: chooseValue(envCfg.FileStoragePath, *filePathFlag, "shortener_data.json"),
-		DatabaseDSN:     chooseValue(envCfg.DatabaseDSN, *dbDSNFlag, ""),
-		AuthSecret:      chooseValue(envCfg.AuthSecret, *authSecretFlag, "dev-secret-key"),
-		PprofMode:       envCfg.PprofMode || *pprofFlag,
+		ServerAddress:   chooseValue(envCfg.ServerAddress, *addrFlag, cfgFromFile.ServerAddress, "localhost:8080"),
+		BaseURL:         chooseValue(envCfg.BaseURL, *baseFlag, cfgFromFile.BaseURL, "http://localhost:8080"),
+		FileStoragePath: chooseValue(envCfg.FileStoragePath, *filePathFlag, cfgFromFile.FileStoragePath, "shortener_data.json"),
+		DatabaseDSN:     chooseValue(envCfg.DatabaseDSN, *dbDSNFlag, cfgFromFile.DatabaseDSN, ""),
+		AuthSecret:      chooseValue(envCfg.AuthSecret, *authSecretFlag, cfgFromFile.AuthSecret, "dev-secret-key"),
+		PprofMode:       envCfg.PprofMode || *pprofFlag || cfgFromFile.PprofMode,
+		EnableHTTPS:     envCfg.EnableHTTPS || *httpsFlag || cfgFromFile.EnableHTTPS,
+	}
+
+	// при HTTPS меняем протокол
+	if cfg.EnableHTTPS && strings.HasPrefix(cfg.BaseURL, "http://") {
+		cfg.BaseURL = "https://" + strings.TrimPrefix(cfg.BaseURL, "http://")
 	}
 
 	cfg.StorageType = detectStorageType(cfg.DatabaseDSN, cfg.FileStoragePath)
@@ -54,12 +84,15 @@ func NewConfig() *Config {
 }
 
 // chooseValue определяет очерёдность параметров конфига
-func chooseValue(envVal, flagVal, defaultVal string) string {
+func chooseValue(envVal, flagVal, fileVal, defaultVal string) string {
 	if envVal != "" {
 		return envVal
 	}
 	if flagVal != "" {
 		return flagVal
+	}
+	if fileVal != "" {
+		return fileVal
 	}
 	return defaultVal
 }

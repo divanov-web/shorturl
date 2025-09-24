@@ -28,6 +28,7 @@ type Storage interface {
 	BatchSave(ctx context.Context, userID string, entries []BatchEntry) error
 	GetUserURLs(ctx context.Context, userID string) ([]UserURL, error)
 	MarkAsDeleted(ctx context.Context, userID string, ids []string) error
+	Shutdown(ctx context.Context) error
 }
 
 // ErrConflict Ошибка Пользователь существует.
