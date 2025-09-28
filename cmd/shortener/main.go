@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/divanov-web/shorturl/internal/config"
+	"github.com/divanov-web/shorturl/internal/grpcserver"
 	"github.com/divanov-web/shorturl/internal/handlers"
 	"github.com/divanov-web/shorturl/internal/middleware"
 	"github.com/divanov-web/shorturl/internal/service"
@@ -129,6 +130,19 @@ func main() {
 		Handler: r,
 	}
 
+	// gRPC запуск
+	var grpcRunner *grpcserver.Runner
+	if cfg.GRPCEnable {
+		var errGrcp error
+		grpcRunner, errGrcp = grpcserver.NewRunner(cfg.GRPCAddress, urlService)
+		if errGrcp != nil {
+			sugar.Fatalw("failed to start gRPC", "error", errGrcp)
+		} else {
+			sugar.Infow("gRPC server starting", "addr", cfg.GRPCAddress)
+			grpcRunner.ServeAsync()
+		}
+	}
+
 	//запускаем сервер в горутине
 	go func() {
 		sugar.Infow("Starting server", "addr", cfg.ServerAddress, "https", cfg.EnableHTTPS)
@@ -162,6 +176,10 @@ func main() {
 		sugar.Errorw("Graceful shutdown error", "error", shutdownErr)
 	}
 
+	// Graceful stop gRPC
+	if grpcRunner != nil {
+		grpcRunner.GracefulStop()
+	}
 }
 
 func initStorage(ctx context.Context, cfg *config.Config) (storage.Storage, error) {

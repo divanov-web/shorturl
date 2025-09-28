@@ -23,6 +23,9 @@ type Config struct {
 	EnableHTTPS     bool   `env:"ENABLE_HTTPS" json:"enable_https"`
 	ConfigPath      string `env:"CONFIG"`
 	TrustedSubnet   string `env:"TRUSTED_SUBNET" json:"trusted_subnet"` // CIDR доверенной подсети
+	// gRPC-настройки
+	GRPCEnable  bool   `env:"GRPC_ENABLE" json:"grpc_enable"`
+	GRPCAddress string `env:"GRPC_ADDRESS" json:"grpc_address"`
 }
 
 // NewConfig Создаёт конфиг приложения и возвращает в виде структуры
@@ -41,6 +44,8 @@ func NewConfig() *Config {
 	cfgPathFlag := flag.String("c", "", "путь к JSON-файлу конфигурации")
 	flag.StringVar(cfgPathFlag, "config", "", "путь к JSON-файлу конфигурации")
 	trustedSubnetFlag := flag.String("t", "", "CIDR доверенной подсети (например, 192.168.0.0/24)")
+	grpcEnableFlag := flag.Bool("grpc", false, "включить gRPC-сервер")
+	grpcAddrFlag := flag.String("gaddr", "", "адрес запуска gRPC-сервера")
 
 	flag.Parse()
 
@@ -74,6 +79,8 @@ func NewConfig() *Config {
 		PprofMode:       envCfg.PprofMode || *pprofFlag || cfgFromFile.PprofMode,
 		EnableHTTPS:     envCfg.EnableHTTPS || *httpsFlag || cfgFromFile.EnableHTTPS,
 		TrustedSubnet:   chooseValue(envCfg.TrustedSubnet, *trustedSubnetFlag, cfgFromFile.TrustedSubnet, ""),
+		GRPCEnable:      envCfg.GRPCEnable || *grpcEnableFlag || cfgFromFile.GRPCEnable,
+		GRPCAddress:     chooseValue(envCfg.GRPCAddress, *grpcAddrFlag, cfgFromFile.GRPCAddress, "localhost:9090"),
 	}
 
 	// при HTTPS меняем протокол
