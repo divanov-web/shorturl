@@ -160,3 +160,15 @@ func (s *Storage) MarkAsDeleted(ctx context.Context, userID string, ids []string
 func (s *Storage) Shutdown(ctx context.Context) error {
 	return nil
 }
+
+// CountURLs возвращает количество сокращённых URL (по размеру карты).
+func (s *Storage) CountURLs(ctx context.Context) (int, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return len(s.data), nil
+}
+
+// CountUsers возвращает количество пользователей — заглушка (нет трекинга пользователей).
+func (s *Storage) CountUsers(ctx context.Context) (int, error) {
+	return 0, nil
+}

@@ -105,6 +105,10 @@ func main() {
 	r.Get("/api/user/urls", h.GetUserURLs)          //Получить все url пользователя
 	r.Delete("/api/user/urls", h.DeleteUserURL)     //Удалить url пользователя по массиву id
 
+	// middleware trusted только для /api/internal/stats
+	r.With(middleware.WithTrustedSubnet(cfg.TrustedSubnet)).
+		Get("/api/internal/stats", h.APIStats)
+
 	sugar.Infow(
 		"Starting server",
 		"addr", cfg.ServerAddress,

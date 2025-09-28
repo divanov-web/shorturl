@@ -204,3 +204,17 @@ func (s *Storage) Shutdown(ctx context.Context) error {
 	}
 	return nil
 }
+
+// CountURLs возвращает количество сокращённых URL.
+func (s *Storage) CountURLs(ctx context.Context) (int, error) {
+	var cnt int
+	err := s.pool.QueryRow(ctx, `SELECT COUNT(*) FROM short_urls`).Scan(&cnt)
+	return cnt, err
+}
+
+// CountUsers возвращает количество уникальных пользователей.
+func (s *Storage) CountUsers(ctx context.Context) (int, error) {
+	var cnt int
+	err := s.pool.QueryRow(ctx, `SELECT COUNT(DISTINCT user_guid) FROM short_urls`).Scan(&cnt)
+	return cnt, err
+}
