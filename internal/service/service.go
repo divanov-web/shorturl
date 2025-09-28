@@ -170,6 +170,7 @@ type Stats struct {
 	Users int `json:"users"`
 }
 
+// Stats возвращает агрегированную статистику по сервису.
 func (s *URLService) Stats(ctx context.Context) (Stats, error) {
 	urls, err := s.Repo.CountURLs(ctx)
 	if err != nil {
