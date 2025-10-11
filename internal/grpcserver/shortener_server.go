@@ -25,27 +25,27 @@ func New(svc *service.URLService) *Server {
 func (s *Server) CreateShort(ctx context.Context, req *pb.CreateShortRequest) (*pb.CreateShortResponse, error) {
 	shortURL, err := s.svc.CreateShort(ctx, req.GetUserId(), req.GetUrl())
 	if err == service.ErrAlreadyExists {
-		return &pb.CreateShortResponse{
-			ShortUrl: shortURL,
-			Conflict: true,
-		}, nil
+		resp := &pb.CreateShortResponse{}
+		resp.SetShortUrl(shortURL)
+		resp.SetConflict(true)
+		return resp, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("create short: %w", err)
 	}
-	return &pb.CreateShortResponse{
-		ShortUrl: shortURL,
-		Conflict: false,
-	}, nil
+	resp := &pb.CreateShortResponse{}
+	resp.SetShortUrl(shortURL)
+	resp.SetConflict(false)
+	return resp, nil
 }
 
 // ResolveShort — аналог GET /{id}
 func (s *Server) ResolveShort(ctx context.Context, req *pb.ResolveShortRequest) (*pb.ResolveShortResponse, error) {
 	orig, ok := s.svc.ResolveShort(ctx, req.GetId())
-	return &pb.ResolveShortResponse{
-		OriginalUrl: orig,
-		Found:       ok,
-	}, nil
+	resp := &pb.ResolveShortResponse{}
+	resp.SetOriginalUrl(orig)
+	resp.SetFound(ok)
+	return resp, nil
 }
 
 // CreateShortBatch — аналог POST /api/shorten/batch
@@ -64,12 +64,14 @@ func (s *Server) CreateShortBatch(ctx context.Context, req *pb.CreateShortBatchR
 	}
 	out := make([]*pb.ShortBatchResult, 0, len(results))
 	for _, r := range results {
-		out = append(out, &pb.ShortBatchResult{
-			CorrelationId: r.CorrelationID,
-			ShortUrl:      r.ShortURL,
-		})
+		item := &pb.ShortBatchResult{}
+		item.SetCorrelationId(r.CorrelationID)
+		item.SetShortUrl(r.ShortURL)
+		out = append(out, item)
 	}
-	return &pb.CreateShortBatchResponse{Results: out}, nil
+	resp := &pb.CreateShortBatchResponse{}
+	resp.SetResults(out)
+	return resp, nil
 }
 
 // Stats — аналог GET /api/internal/stats
@@ -78,10 +80,10 @@ func (s *Server) Stats(ctx context.Context, _ *pb.StatsRequest) (*pb.StatsRespon
 	if err != nil {
 		return nil, fmt.Errorf("stats: %w", err)
 	}
-	return &pb.StatsResponse{
-		Urls:  int32(st.URLs),
-		Users: int32(st.Users),
-	}, nil
+	resp := &pb.StatsResponse{}
+	resp.SetUrls(int32(st.URLs))
+	resp.SetUsers(int32(st.Users))
+	return resp, nil
 }
 
 // Runner — хелпер для запуска gRPC сервера.
