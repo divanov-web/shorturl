@@ -163,3 +163,22 @@ func (s *URLService) DeleteShortURLsAsync(userID string, ids []string) {
 		IDs:    ids,
 	}
 }
+
+// Stats возвращает агрегированную статистику по сервису.
+type Stats struct {
+	URLs  int `json:"urls"`
+	Users int `json:"users"`
+}
+
+// Stats возвращает агрегированную статистику по сервису.
+func (s *URLService) Stats(ctx context.Context) (Stats, error) {
+	urls, err := s.Repo.CountURLs(ctx)
+	if err != nil {
+		return Stats{}, err
+	}
+	users, err := s.Repo.CountUsers(ctx)
+	if err != nil {
+		return Stats{}, err
+	}
+	return Stats{URLs: urls, Users: users}, nil
+}

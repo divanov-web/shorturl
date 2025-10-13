@@ -29,6 +29,8 @@ type Storage interface {
 	GetUserURLs(ctx context.Context, userID string) ([]UserURL, error)
 	MarkAsDeleted(ctx context.Context, userID string, ids []string) error
 	Shutdown(ctx context.Context) error
+	CountURLs(ctx context.Context) (int, error)
+	CountUsers(ctx context.Context) (int, error)
 }
 
 // ErrConflict Ошибка Пользователь существует.

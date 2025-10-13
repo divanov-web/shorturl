@@ -138,7 +138,7 @@ func (h *Handler) GetUserURLs(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 // DeleteUserURL хендлер удаления url пользователя. json: ["6qxTVvsy", "RTfd56hn", "Jlfd67ds"]
@@ -164,4 +164,16 @@ func (h *Handler) DeleteUserURL(w http.ResponseWriter, r *http.Request) {
 	h.Service.DeleteShortURLsAsync(userID, ids)
 
 	w.WriteHeader(http.StatusAccepted) // 202 — принято к выполнению
+}
+
+// APIStats хендлер Врзвращение статичтики по url и юзерам
+func (h *Handler) APIStats(w http.ResponseWriter, r *http.Request) {
+	stats, err := h.Service.Stats(r.Context())
+	if err != nil {
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(stats)
 }

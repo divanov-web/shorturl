@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+package shortener.v1;
+
+option go_package = "github.com/divanov-web/shorturl/internal/grpcserver/pb";
+
+service Shortener {
+  rpc CreateShort(CreateShortRequest) returns (CreateShortResponse);
+  rpc ResolveShort(ResolveShortRequest) returns (ResolveShortResponse);
+  rpc CreateShortBatch(CreateShortBatchRequest) returns (CreateShortBatchResponse);
+  rpc Stats(StatsRequest) returns (StatsResponse);
+}
+
+message CreateShortRequest {
+  string user_id = 1; // передаём userID напрямую
+  string url = 2;
+}
+
+message CreateShortResponse {
+  string short_url = 1;
+  // conflict = true, если URL уже был (аналог 409)
+  bool conflict = 2;
+}
+
+message ResolveShortRequest {
+  string id = 1;
+}
+
+message ResolveShortResponse {
+  string original_url = 1;
+  bool found = 2; // false => аналог 410/404
+}
+
+message BatchItem {
+  string correlation_id = 1;
+  string original_url = 2;
+}
+
+message ShortBatchResult {
+  string correlation_id = 1;
+  string short_url = 2;
+}
+
+message CreateShortBatchRequest {
+  string user_id = 1;
+  repeated BatchItem items = 2;
+}
+
+message CreateShortBatchResponse {
+  repeated ShortBatchResult results = 1;
+}
+
+message StatsRequest {}
+
+message StatsResponse {
+  int32 urls = 1;
+  int32 users = 2;
+}
